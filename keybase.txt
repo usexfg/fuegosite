@@ -1,0 +1,56 @@
+==================================================================
+https://keybase.io/fandomgold
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://fandomgold.org
+  * I am fandomgold (https://keybase.io/fandomgold) on keybase.
+  * I have a public key ASAsYF9MYFuIDVcPE_LSYTPP1kV3bPzfLPwwkhJQCkbnvgo
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "01202c605f4c605b880d570f13f2d26133cfd645776cfcdf2cfc309212500a46e7be0a",
+      "host": "keybase.io",
+      "kid": "01202c605f4c605b880d570f13f2d26133cfd645776cfcdf2cfc309212500a46e7be0a",
+      "uid": "6540ede661bf936de97a1707ed153819",
+      "username": "fandomgold"
+    },
+    "merkle_root": {
+      "ctime": 1610105946,
+      "hash": "65990a0bd593ce597abc9ed084472e6008fe782971e533ead0c243b957031e94a9ecc318939695ef4757846c09955f48e49d491de9695a0069cec8bd22a1025c",
+      "hash_meta": "52c9d740694a9178b792ab128f5eae908773f1598365cb78063cbb01faa7068c",
+      "seqno": 18639441
+    },
+    "service": {
+      "entropy": "6qiDk3r4M+jIp6SpOajFWBD4",
+      "hostname": "fandomgold.org",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 2
+  },
+  "client": {
+    "name": "keybase.io go client",
+    "version": "5.5.2"
+  },
+  "ctime": 1610105971,
+  "expire_in": 504576000,
+  "prev": "b298696677b55d714e0c19f94ec2527a2fb3b0ef3985677299c5bc16d23644b9",
+  "seqno": 7,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+hKRib2R5hqhkZXRhY2hlZMOpaGFzaF90eXBlCqNrZXnEIwEgLGBfTGBbiA1XDxPy0mEzz9ZFd2z83yz8MJISUApG574Kp3BheWxvYWTESpcCB8QgsphpZne1XXFODBn5TsJSei+zsO85hWdymcW8FtI2RLnEINXqx4zA0FYbckUKpdwOM96/SIrZjqJsLQ//RAAVv7slAgHCo3NpZ8RAFyxVRelpe+zyfnWtANT0cVYEsBaIOKvbmxlbHgMIk+jOjzReu9hYkNdrYWFvBP4ImC18Vx9p7A+F7NOoT8zRDKhzaWdfdHlwZSCkaGFzaIKkdHlwZQildmFsdWXEID6RXJ40o+Y76UOfOVf+ORt6ff8oHU69o5Ar2X0Wl1puo3RhZ80CAqd2ZXJzaW9uAQ==
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/fandomgold
+
+==================================================================

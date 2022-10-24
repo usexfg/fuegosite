@@ -1,0 +1,30 @@
+ACCOUNTS=[
+"GCFWKV4KWYPBPQVQYLVL6N6VARBLVQS6POYEMLN7AGZB5UK4VIJX565U",
+"GATT6TRCVGUPXMYPU7UZWA6QJPAPITA6Y36SKTT2CUBJZWM5N7BOFU6J",
+]
+VERSION="2.0.0"
+
+[DOCUMENTATION]
+ORG_NAME="Fandom Gold Society"
+ORG_URL="https://fandomgold.org"
+ORG_LOGO="https://raw.githubusercontent.com/FandomGold/XFG-data/master/images/FanG8.png"
+ORG_DESCRIPTION="Protectors Of The Realm"
+ORG_KEYBASE="fandomgold"
+ORG_TWITTER="fandomgold"
+ORG_GITHUB="fandomgold"
+ORG_OFFICIAL_EMAIL="fandomgold@pm.me"
+
+[[PRINCIPALS]]
+email="fandomgold@pm.me"
+keybase="fandomgold"
+twitter="fandomgold"
+
+[[CURRENCIES]]
+code="PARA"
+issuer="GCFWKV4KWYPBPQVQYLVL6N6VARBLVQS6POYEMLN7AGZB5UK4VIJX565U"
+display_decimals=7
+name="Para"
+desc="Para is a reward currency created to be earned by listeners on the DIGM Music Album Marketplace and P2P Rewards Radio Platform. Stellar is the first of 2 separate issuing-platforms on which a PARA token will be launched."
+conditions="PARA are denominated in atomic units called pico-PARA or 'para' (10^12) - However, the smallest unit of PARA on Stellar issuance is 7 decimals, therefore, each atomic unit here is equal to 100k para"
+image="https://raw.githubusercontent.com/FandomGold/XFG-data/master/images/para.png"
+fixed_number=1

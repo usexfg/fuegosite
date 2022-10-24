@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://fango.money/sitemap.txt
