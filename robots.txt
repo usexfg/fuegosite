@@ -1,3 +1,3 @@
 User-agent: *
 Disallow:
-Sitemap: https://fango.money/sitemap.txt
+Sitemap: https://fuego.money/sitemap.txt
