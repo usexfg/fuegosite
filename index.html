@@ -51,17 +51,24 @@
     <div id="viewport" class="l-viewport">
       <div class="l-wrapper">
         <header class="header">
+		
+		<!-- LOGO + USE XFG -->
           <a class="header--logo" href="https://github.com/usexfg">
             <img src="assets/img/fuego.png" height="33px"style="border: 4px double #ffc800; border-radius: 69px;" alt="FUEG0">
             <p style="font-family: orbitron;font-size: 12pt; padding-bottom: 4px;">Use XFG</p>
           </a>
+		<!--  EXPLORER LINK -->
           <a class="header--logo" href="http://fuego.spaceportx.net/">
            <p style="font-family: orbitron;font-size: 12pt; padding-bottom: 4px; color:wheat;padding-right:130px;">Fuego Explorer</p>
           </a>
          <div class="header--nav-toggle">
-            <span></span>
+           <span>
+          </span>
           </div>
         </header>
+	      
+	      
+	      <!-- SIDE MENU BAR -->
         <nav class="l-side-nav">
           <ul class="side-nav">
             <li class="is-active"><span>🌒</span></li>
@@ -70,13 +77,21 @@
             <li><span>Follow</span></li>
           </ul>
         </nav>
+	      
+	      	<!---				 MAIN / MOON LANDING PAGE				  --->
+
         <ul class="l-main-content main-content">
           <li class="l-section section section--is-active">
             <div class="intro">
-<iframe src="https://widget.nomics.com/assets/XFG/USD" width="400" frameborder="0" height="100%" style="z-index: 1; /* color: white; */ position: fixed; padding-top: 250px;"></iframe>
+
+		    <!---  XFG PRICE WIDGET -->
+		    <iframe src="https://widget.nomics.com/assets/XFG/USD" width="400" frameborder="0" height="100%" style="z-index: 1; position: fixed; padding-top: 250px;"></iframe>
+		   
 		    <div class="intro--banner">
-                <img src="assets/img/jamoon.png" alt="Welcome">
+                <img src="assets/img/jamoon.png" alt="TO-THE-MOON MAN">
               </div>
+		    
+		    <!--  FUEGO ($XFG) MONEY TRAITS  -->
               <div class="intro--options">
                 <a href="#0">
                   <h3 style="color:white;">PRIVATE</h3>
@@ -93,11 +108,20 @@
               </div>
             </div>
           </li>
+		
+				
+         <!-----------------------------	        WALLETS PAGE               ------------------------------>
+
+		
           <li class="l-section section">
             <div class="work">
               <h2>Choose Your Wallet</h2>
               <div class="work--lockup">
                 <ul class="slider">
+			
+			
+			<!--- CLI SUITE --->
+			
                   <li class="slider--item slider--item-left">
                     <a href="http://github.com/usexfg/fuego">
                       <div class="slider--item-image">
@@ -107,6 +131,9 @@
                       <p class="slider--item-description">fuego-wallet-cli is a command line interface tool of the Fuego network for those requiring full blockchain access.</p>
                     </a>
                   </li>
+			
+			<!--- FUEGO DESKTOP --->
+			
                   <li class="slider--item slider--item-center">
                     <a href="http://github.com/usexfg/fuego-wallet/releases">
                       <div class="slider--item-image">
@@ -114,9 +141,13 @@
                       </div>
                       <p class="slider--item-title">Fuego-Desktop</p>
                    <p class="slider--item-description">Privacy banking and untraceable P2P messaging.<br>Keeping you in full control of your private keys- and thus, your coins.
-</p>
+		</p>
                     </a>
                   </li>
+			
+			
+			<!---  TIPBOT   --->
+			
                   <li class="slider--item slider--item-right">
                     <a href="https://discord.gg/VnASAJc"target="_blank">
                       <div class="slider--item-image">
@@ -126,6 +157,10 @@
                       <p class="slider--item-description">$XFG is supported in TIPBOT wallet used in over 2500 different Discord server guilds by nearly 1M users.</p>
                     </a>
                   </li>
+			
+			
+		       <!---   PAPERWALLET / COLD STORAGE --->
+			
                       <li class="slider--item slider--item-hidden">
                     <a href="http://radioactive.sytes.net:8000/index.html#paperwallet">
                       <div class="slider--item-image">
@@ -136,6 +171,9 @@
                     </a>
                   </li>
                 </ul>
+		      
+		      
+		      <!---   HORIZONTAL GALLERY STUFF  -->  
                 <div class="slider--prev">
                   <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
                   viewBox="0 0 150 118" style="enable-background:new 0 0 150 118;" xml:space="preserve">
@@ -156,6 +194,16 @@
               </div>
             </div>
           </li>
+		
+
+		
+		
+<!----------------------------- 	           FANDOM  page                  ------------------------------>
+              <!--          (redesign to "ABOUT" page that includes info on COLD + DIGM )         -->
+		      
+		      
+
+		
           <li class="l-section section">
             <div class="about">
               <div class="about--banner">
@@ -170,42 +218,101 @@
                 </a>
                 <img src="assets/img/about.gif" alt="About Us">
               </div>
+		    
+		    <!---  ABOUT PAGE Boxes   --->
               <div class="about--options">
-               <a class="popup" onclick="myFunction()"><h3>XFG Specs</h3>
-<span class="popuptext" id="myPopup">
-<br>
-Symbol: ₲<br>
-Ticker: XFG<br>
-Atomic unit: 0rb<br>
-Decimal Places: 7<br>
-Max Supply: 8 Million 8<br>
-Consensus Type: Proof Of Work<br>
-Difficulty Algo: Zawy LWMA-1<br>
-Emission: ~ 5% remaining<br>
-Algo: CryptoNight UPX/2<br>				    
-Block time: 480 seconds<br>
-Launched: Jan 8 18<br>
-Dev Taxes: 0<br>
-Premine: 0<br>
-</span>                </a>
-                <a class="popup2" onclick="myFunction2()"><h3>Our Vision</h3>
-<span class="popuptext2" id="myPopup2">
-We believe every form of time spent on fandom of any kind has value.<br>
-Whether it be listening to your new favorite song, creating fan-made art, watching<br>
-your favorite films- video games, superheroes, or just popular culture in general; and&nbsp;<br>&nbsp;especially the social elements of fandom - when, for instance, you can confirm whether<br>&nbsp;your friend's time spent watching- say... 8 seasons of an HBO series, would be worth it.<br><br>
-So much of fandom as we know it has largely been centered around content produced by<br>corporate behemoths, yet- in today's world where technology is ever-increasingly allowing&nbsp;<br>anyone to be a content creator- we believe P2P fandom is just beginning.&nbsp;<br><br>
-By utilizing the Fuego decentralized blockchain network &amp; privacy cryptocurrency,<br>
-along with layers built by Fuego Elder Council- we, as fans &amp; creators-<br>
-are able to put the true power of fandom where it belongs for good...<br><br>&nbsp;at a peer to peer level.<br> <br> 
-Join us. <br>
+               <a class="popup" onclick="myFunction()">
+		       
+		       
+                        <h3>XFG Specs</h3>
+		<span class="popuptext" id="myPopup">
+        <br>
+Symbol: ₲
+	<br>
+Ticker: XFG
+	<br>
+Atomic unit: 0rb
+	<br>
+Decimal Places: 7
+	<br>
+Max Supply: 8 Million 8
+	<br>
+Consensus Type: Proof Of Work
+	<br>
+Difficulty Algo: Zawy LWMA-1
+	<br>
+Emission: ~ 5% remaining
+	<br>
+Algo: CryptoNight UPX/2
+	<br>				    
+Block time: 480 seconds
+	<br>
+Launched: Jan 8 18
+	<br>
+Dev Taxes: 0
+	<br>
+Premine: 0
+	<br>
+	
+   </span>               		      
+</a>
+                
+		      
+		      <a class="popup2" onclick="myFunction2()">
+  				<h3>Our Vision</h3>
+		<span class="popuptext2" id="myPopup2">
+						
+We believe every form of time spent on fandom of any kind has value.
+	<br>
+Whether it be listening to your new favorite song, creating fan-art, watching
+	<br>
+your favorite films - video games, legos, superheroes, or even pop culture in general;
+	<br>
+but specifically social aspects of fandom - when, say for example, you confirm whether
+	<br>
+your friend's time spent watching- say... 8 seasons of an HBO series, is <b>worth it</b>.
+	<br>
+	<br>
+Too, so much of fandom has largely been centered around content produced by
+	<br>
+corporate behemoths, yet- in today's world where technology is ever-increasingly allowing 
+	<br>
+<b>anyone</b> to be a content creator- we believe P2P fandom is just beginning.
+	<br> 
+	<br>
+By utilizing the Fuego decentralized blockchain network &amp; privacy cryptocurrency,
+	<br>
+along with layer-2s created by <i>Fuego's Elder Council</i>- we, as fans &amp; creators-
+	<br>
+will keep the true power of fandom where it belongs for good...
+	<br>
+	<br>
+at a peer to peer level.
+	<br> 
+	<br> 
+Join us. 
+	<br>
 
-</span>                </a>
-                <a href="https://www.youtube.com/watch?v=MakyIPo2wKQ" target="_blank">
-                  <h3>Origins</h3>
-                </a>
-              </div>
-            </div>
-          </li>
+    </span>                
+</a>
+
+		      
+	            <a href="https://www.youtube.com/watch?v=MakyIPo2wKQ" target="_blank">
+			    		<h3>Origins</h3>
+              	   </a>
+		      
+          </div>
+       </div>
+    </li>
+		
+		      
+		      
+		      
+		      
+		      
+<!----------------------------- 	         FOLLOW page                  ------------------------------>
+		      
+		      
           <li class="l-section section">
             <div class="contact">
               <div class="contact--lockup">
@@ -228,13 +335,20 @@ Join us. <br>
       </div>
     </div>
   </div>
+	
+	<!---				  SIDEBAR				  --->
+	
   <ul class="outer-nav">
     <li class="is-active">🌒</li>
     <li>Wallet</li>
     <li>Fandom</li>
     <li>Follow</li>
-</ul></div>
+  </ul>
 
+</div>
+
+	<!---  scripts   --->
+	
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 <script>window.jQuery || document.write('<script src="assets/js/vendor/jquery-2.2.4.min.js"><\/script>')</script>
 <script>function myFunction() {var popup = document.getElementById("myPopup");popup.classList.toggle("show");}</script>
