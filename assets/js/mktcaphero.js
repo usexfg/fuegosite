@@ -15,7 +15,7 @@
     function displayResult(result) {
       const resultElement = document.getElementById("result");
       if (resultElement) {
-        resultElement.textContent = result.toFixed(2); // Display with 2 decimal places
+        resultElement.textContent = `$${result.toLocaleString()}`; // + $ & commas
       }
     }
 
