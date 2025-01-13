@@ -96,9 +96,12 @@
           <li class="l-section section section--is-active">
             <div class="intro">
 
-		    <!---  XFG PRICE WIDGET -->
+		    <!---  XFG PRICE WIDGET 
 		   <iframe src="https://coinpaprika.com/coin/xfg-fuego/embed/?interval=0&nightMode=true&primaryCurrency=USD&updateActive=false" width="400" frameborder="0" style="z-index:1; position: fixed; padding-bottom:250px;"></iframe> 
-		    
+		    -->
+
+		    <h1>Marketcap: <span id="result">0</span></h1>
+
 		    <div class="intro--banner">
                 <img src="assets/img/jamoon.png" alt="TO-THE-MOON MAN">
               </div>
@@ -364,5 +367,15 @@ Join us.
 <script>function myFunction() {var popup = document.getElementById("myPopup");popup.classList.toggle("show");}</script>
 <script>function myFunction2() {var popup2 = document.getElementById("myPopup2");popup2.classList.toggle("show2");}</script>
 <script src="assets/js/functions-min.js"></script>
+<script src="assets/js/mktcaphero.js"></script>
+<script>
+    let intervalId;
+    function startUpdates() {
+      intervalId = setInterval(async () => {
+      }, 10000);
+    }
+    startUpdates(); // Start the updates when the page loads
+  </script>
+
 </body>
 </html>
