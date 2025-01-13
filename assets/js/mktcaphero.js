@@ -15,7 +15,7 @@
     function displayResult(result) {
       const resultElement = document.getElementById("result");
       if (resultElement) {
-        resultElement.textContent = `$${result.toLocaleString(2)}`; // + $ & commas
+        resultElement.textContent = `$${result.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); // US Dollar currency format
       }
     }
 
