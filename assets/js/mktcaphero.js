@@ -23,7 +23,7 @@ function startUpdates() {
 
       if (typeof num1 === 'number') {
         const product = num1 * 7672289;
-        displayResult(product); // Update the display
+        displayResult(mktcphero); // Update the display
       } else {
         console.error("API responses did not contain numbers.");
       }
@@ -35,8 +35,8 @@ function stopUpdates() {
   clearInterval(intervalId);
 }
 
-function displayResult(result) {
-  const resultElement = document.getElementById("result"); // Get the element
+function displayResult(mktcphero) {
+  const resultElement = document.getElementById("mktcphero"); // Get the element
   if (resultElement) {
     resultElement.textContent = result;
   }
