@@ -22,7 +22,7 @@ function startUpdates() {
       const num1 = price;
 
       if (typeof num1 === 'number') {
-        const product = num1 * 7672289;
+        const mktcphero = num1 * 7672289;
         displayResult(mktcphero); // Update the display
       } else {
         console.error("API responses did not contain numbers.");
