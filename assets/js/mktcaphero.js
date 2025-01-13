@@ -1,4 +1,4 @@
-    async function fetchData(url) {
+   async function fetchData(url) {
       try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -23,31 +23,31 @@
 
     function startUpdates() {
       intervalId = setInterval(async () => {
-        // CoinPaprika API for Fuego price in USD
-        const fuegoUrl = "https://api.coinpaprika.com/v1/tickers/xfg-fango";
+        // CoinPaprika API for Fuego (XFG) closing price
+        const fuegoUrl = "https://api.coinpaprika.com/v1/coins/xfg-fango/ohlcv/latest";
 
         const fuegoData = await fetchData(fuegoUrl);
 
         if (fuegoData) {
           try {
-            // Extract values based on CoinPaprika structure
-            const fuegoPriceUsd = parseFloat(fuegoData.quotes.USD.price); // Parse to float
+            // Extract the closing price from the response
+            const closingPrice = fuegoData.close; 
 
-            // circulating xfg supply
-            const fixedRate = 7672290; 
+            // xfg circ supply
+            const fixedRate = 7672290;
 
-            if (typeof fuegoPriceUsd === 'number') {
-              const product = fuegoPriceUsd * fixedRate;
+            if (typeof closingPrice === 'number') {
+              const product = closingPrice * fixedRate;
               displayResult(product);
             } else {
-              console.error("API response did not contain expected number value.");
+              console.error("API response did not contain 'close' property.");
               console.log("Fuego Data:", fuegoData);
             }
           } catch (error) {
             console.error("Error processing API data:", error);
           }
         }
-      }, 30000); // Update every 30 seconds
+      }, 30000); // Update every 30 seconds 
     }
 
     startUpdates(); // Start updates when the page loads
