@@ -1,43 +1,53 @@
-	async function fetchData(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json(); // Assuming JSON response
-    return data;
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    return null; // Or handle the error as needed
-  }
-}
-
-let intervalId; // To store the interval ID
-
-function startUpdates() {
-  intervalId = setInterval(async () => {
-    const data1 = await fetchData("https://api.coinpaprika.com/v1/tickers/xfg-fango");
-
-    if (data1) {
-      const num1 = price;
-
-      if (typeof num1 === 'number') {
-        const mktcphero = num1 * 7672289;
-        displayResult(mktcphero); // Update the display
-      } else {
-        console.error("API responses did not contain numbers.");
+    async function fetchData(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        return null;
       }
     }
-  }, 10000); // Update every 10000ms (10 second) - Adjust as needed
-}
 
-function stopUpdates() {
-  clearInterval(intervalId);
-}
+    function displayResult(result) {
+      const resultElement = document.getElementById("result");
+      if (resultElement) {
+        resultElement.textContent = result.toFixed(2); // Display with 2 decimal places
+      }
+    }
 
-function displayResult(mktcphero) {
-  const resultElement = document.getElementById("mktcphero"); // Get the element
-  if (resultElement) {
-    resultElement.textContent = result;
-  }
-}
+    let intervalId;
+
+    function startUpdates() {
+      intervalId = setInterval(async () => {
+        // CoinPaprika API for Fuego price in USD
+        const fuegoUrl = "https://api.coinpaprika.com/v1/tickers/xfg-fango";
+
+        const fuegoData = await fetchData(fuegoUrl);
+
+        if (fuegoData) {
+          try {
+            // Extract values based on CoinPaprika structure
+            const fuegoPriceUsd = parseFloat(fuegoData.quotes.USD.price); // Parse to float
+
+            // circulating xfg supply
+            const fixedRate = 7672290; 
+
+            if (typeof fuegoPriceUsd === 'number') {
+              const product = fuegoPriceUsd * fixedRate;
+              displayResult(product);
+            } else {
+              console.error("API response did not contain expected number value.");
+              console.log("Fuego Data:", fuegoData);
+            }
+          } catch (error) {
+            console.error("Error processing API data:", error);
+          }
+        }
+      }, 30000); // Update every 30 seconds
+    }
+
+    startUpdates(); // Start updates when the page loads
