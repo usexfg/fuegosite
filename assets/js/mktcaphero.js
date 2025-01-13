@@ -30,8 +30,8 @@
 
         if (fuegoData) {
           try {
-            // Extract the closing price from the response
-            const closingPrice = fuegoData.close; 
+            // Extract the closing price
+            const closingPrice = fuegoData[0].close;
 
             // xfg circ supply
             const fixedRate = 7672290;
