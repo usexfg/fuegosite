@@ -34,7 +34,7 @@
             const closingPrice = fuegoData[0].close;
 
             // xfg circ supply
-            const fixedRate = 7672290;
+            const fixedRate = 7673000;
 
             if (typeof closingPrice === 'number') {
               const product = closingPrice * fixedRate;
