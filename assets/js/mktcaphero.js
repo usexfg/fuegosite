@@ -15,7 +15,7 @@
     function displayResult(result) {
       const resultElement = document.getElementById("result");
       if (resultElement) {
-        resultElement.textContent = `$${result.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`;
+        resultElement.textContent = "$" + `${result.toLocaleString('en-US')}`;
       }
     }
 
@@ -24,17 +24,16 @@
     function startUpdates() {
       intervalId = setInterval(async () => {
         // CoinPaprika API for Fuego (XFG) closing price
-        const fuegoUrl = "https://api.coinpaprika.com/v1/coins/xfg-fango/ohlcv/latest";
-
+        const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/7d/?quote=usd";
         const fuegoData = await fetchData(fuegoUrl);
 
         if (fuegoData) {
           try {
             // Extract the closing price
-            const closingPrice = fuegoData[0].close;
+            const closingPrice = fuegoData[0].price_high;
 
-            // xfg circ supply
-            const fixedRate = 7673000;
+            // xfg total supply
+            const fixedRate = 8000008;
 
             if (typeof closingPrice === 'number') {
               const product = closingPrice * fixedRate;
