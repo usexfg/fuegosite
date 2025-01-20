@@ -46,7 +46,7 @@ async function updateValues() {
         const product = mostRecentPrice * fixedRate;
         displayResult(mostRecentPrice, product);
       } else {
-            console.error("API response did not contain a valid 'price_high' property.");
+            console.error("API response did not contain a valid 'price' property.");
             console.log("Fuego Data:", fuegoData);
           }
         } catch (error) {
