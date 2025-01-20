@@ -44,7 +44,7 @@ async function updateValues() {
       if (mostRecentPrice !== null) {
         const fixedRate = 8000008;
         const product = mostRecentPrice * fixedRate;
-        displayResult(mostRecentPrice, product);
+        displayResult(product);
       } else {
             console.error("API response did not contain a valid 'price' property.");
             console.log("Fuego Data:", fuegoData);
