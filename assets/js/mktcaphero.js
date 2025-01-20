@@ -21,23 +21,30 @@
 
     let intervalId;
 
-    function startUpdates() {
-      intervalId = setInterval(async () => {
-        // CoinPaprika API for Fuego (XFG) closing price
-        const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/7d/?quote=usd";
-        const fuegoData = await fetchData(fuegoUrl);
+async function updateValues() {
+  const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/30d/?quote=usd";
+  const fuegoData = await fetchData(fuegoUrl);
 
-        if (fuegoData) {
-          try {
-            // Extract the closing price
-            const closingPrice = fuegoData[0].price_high;
+  if (fuegoData && fuegoData.length > 0) {
+    try {
+      let mostRecentTimestamp = 0;
+      let mostRecentPrice = null;
 
-            // xfg total supply
-            const fixedRate = 8000008;
+      // Iterate through the price data to find the most recent entry
+      for (const priceEntry of fuegoData[0].price) {
+        const timestamp = priceEntry[0];
+        const price = priceEntry[1];
 
-            if (typeof closingPrice === 'number') {
-              const product = closingPrice * fixedRate;
-              displayResult(product);
+        if (timestamp > mostRecentTimestamp) {
+          mostRecentTimestamp = timestamp;
+          mostRecentPrice = price;
+        }
+      }
+
+      if (mostRecentPrice !== null) {
+        const fixedRate = 8000008;
+        const product = mostRecentPrice * fixedRate;
+        displayResult(product);
             } else {
               console.error("API response did not contain 'close' property.");
               console.log("Fuego Data:", fuegoData);
@@ -46,7 +53,7 @@
             console.error("Error processing API data:", error);
           }
         }
-      }, 30000); // Update every 30 seconds 
+      }, 300000); // Update every 5mins
     }
 
     startUpdates(); // Start updates when the page loads
