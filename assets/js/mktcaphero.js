@@ -21,39 +21,42 @@
 
     let intervalId;
 
-async function updateValues() {
-  const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/30d/?quote=usd";
-  const fuegoData = await fetchData(fuegoUrl);
+async function startUpdates() {
+  updateValues(); // Call immediately
 
-  if (fuegoData && fuegoData.length > 0) {
-    try {
-      let mostRecentTimestamp = 0;
-      let mostRecentPrice = null;
+  intervalId = setInterval(async () => { // Correct placement of curly brace
+    // CoinPaprika API for Fuego (XFG) closing price
+    const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/30d/?quote=usd";
+    const fuegoData = await fetchData(fuegoUrl);
 
-      // Iterate through the price data to find the most recent entry
-      for (const priceEntry of fuegoData[0].price) {
-        const timestamp = priceEntry[0];
-        const price = priceEntry[1];
+    if (fuegoData && fuegoData.length > 0) {
+      try {
+        let mostRecentTimestamp = 0;
+        let mostRecentPrice = null;
 
-        if (timestamp > mostRecentTimestamp) {
-          mostRecentTimestamp = timestamp;
-          mostRecentPrice = price;
-        }
-      }
+        for (const priceEntry of fuegoData[0].price) {
+          const timestamp = priceEntry[0];
+          const price = priceEntry[1];
 
-      if (mostRecentPrice !== null) {
-        const fixedRate = 8000008;
-        const product = mostRecentPrice * fixedRate;
-        displayResult(product);
-            } else {
-              console.error("API response did not contain 'close' property.");
-              console.log("Fuego Data:", fuegoData);
-            }
-          } catch (error) {
-            console.error("Error processing API data:", error);
+          if (timestamp > mostRecentTimestamp) {
+            mostRecentTimestamp = timestamp;
+            mostRecentPrice = price;
           }
         }
-      }, 300000); // Update every 5mins
+
+        if (mostRecentPrice !== null) {
+          const fixedRate = 8000008;
+          const product = mostRecentPrice * fixedRate;
+          displayResult(product);
+        } else {
+          console.error("API response did not contain 'price' property.");
+          console.log("Fuego Data:", fuegoData);
+        }
+      } catch (error) {
+        console.error("Error processing API data:", error);
+      }
     }
+  }, 300000); // Update every 5mins
+}
 
     startUpdates(); // Start updates when the page loads
