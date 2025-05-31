@@ -22,7 +22,7 @@
     let intervalId;
 
 async function updateValues() {
-  const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fango/30d/?quote=usd";
+  const fuegoUrl = "https://graphsv2.coinpaprika.com/currency/data/xfg-fuego/30d/?quote=usd";
   const fuegoData = await fetchData(fuegoUrl);
 
   if (fuegoData && fuegoData.length > 0) {

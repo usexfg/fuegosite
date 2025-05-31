@@ -40,9 +40,38 @@
 <!-- Zapfino -->
 <link href="https://fonts.cdnfonts.com/css/zapfino" rel="stylesheet">
 
-
-
-	
+<style>
+  .marketcap-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .marketcap-hero h1 {
+    padding-top: 4pc;
+    margin: 0;
+    width: 100%;
+    text-align: center;
+    font-size: clamp(2rem, 6vw, 4rem);
+  }
+  .marketcap-hero h1 a {
+    font-size: 8vw;
+    max-width: 100%;
+    display: inline-block;
+    word-break: break-word;
+  }
+  @media (max-width: 600px) {
+    .marketcap-hero h1 {
+      padding-top: 2pc;
+    }
+    .marketcap-hero h1 a {
+      font-size: 12vw;
+    }
+  }
+</style>
 
 <!-- Icons -->
 <link rel="shortcut icon" href="/favicons/favicon-32x32.png">       	
