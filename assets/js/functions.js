@@ -5,34 +5,27 @@ $( document ).ready(function() {
   // DOMMouseScroll included for firefox support
   var canScroll = true,
       scrollController = null;
-  $(this).on('mousewheel DOMMouseScroll', function(e){
-
-    if (!($('.outer-nav').hasClass('is-vis'))) {
-
+  // Replace jQuery scroll binding with native listeners:
+  function handleWheel(e) {
+    if (!$('.outer-nav').hasClass('is-vis')) {
       e.preventDefault();
-
-      var delta = (e.originalEvent.wheelDelta) ? -e.originalEvent.wheelDelta : e.originalEvent.detail * 20;
-
+      var delta = e.deltaY ? e.deltaY : (e.wheelDelta ? -e.wheelDelta : e.detail * 20);
       if (delta > 50 && canScroll) {
         canScroll = false;
         clearTimeout(scrollController);
-        scrollController = setTimeout(function(){
-          canScroll = true;
-        }, 800);
+        scrollController = setTimeout(function(){ canScroll = true; }, 800);
         updateHelper(1);
-      }
-      else if (delta < -50 && canScroll) {
+      } else if (delta < -50 && canScroll) {
         canScroll = false;
         clearTimeout(scrollController);
-        scrollController = setTimeout(function(){
-          canScroll = true;
-        }, 800);
+        scrollController = setTimeout(function(){ canScroll = true; }, 800);
         updateHelper(-1);
       }
-
     }
-
-  });
+  }
+  document.addEventListener('wheel', handleWheel, { passive: false });
+  document.addEventListener('mousewheel', handleWheel, { passive: false });
+  document.addEventListener('DOMMouseScroll', handleWheel, { passive: false });
 
   $('.side-nav li, .outer-nav li').click(function(){
 

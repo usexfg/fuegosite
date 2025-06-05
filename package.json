@@ -1,0 +1,23 @@
+{
+  "name": "fuegosite",
+  "version": "1.0.0",
+  "description": "Open source community-driven development.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usexfg/fuegosite.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/usexfg/fuegosite/issues"
+  },
+  "homepage": "https://github.com/usexfg/fuegosite#readme",
+  "dependencies": {
+    "lightweight-charts": "^5.0.7"
+  }
+}
