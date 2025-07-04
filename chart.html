@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fuego (XFG) Comprehensive Price Chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Removed TradingView widget script; using Lightweight Charts instead -->
+  <style>
+    body, html { 
+      margin:0; 
+      padding:0; 
+      background:#000; 
+      color:#fff; 
+      font-family:'Orbitron', 'Arial', sans-serif;
+      min-height: 100vh;
+    }
+    .header {
+      background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 2px solid #22e1e4;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 2.5em;
+      color: #22e1e4;
+      text-shadow: 0 0 20px #22e1e4;
+      font-weight: 400;
+    }
+    .header .subtitle {
+      color: #888;
+      margin-top: 10px;
+      font-size: 1.1em;
+    }
+    .chart-container {
+      background: #111;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+    #chart { 
+      width:100%; 
+      height:80vh;
+      min-height: 600px;
+    }
+    .controls {
+      background: #1a1a1a;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      border-top: 1px solid #333;
+      flex-wrap: wrap;
+    }
+    .time-btn {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    .time-btn:hover {
+      background: #22e1e4;
+      color: #000;
+      border-color: #22e1e4;
+    }
+    .time-btn.active {
+      background: #22e1e4;
+      color: #000;
+      border-color: #22e1e4;
+    }
+    .price-info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #22e1e4;
+      z-index: 100;
+    }
+    .price-info .current-price {
+      font-size: 1.8em;
+      color: #22e1e4;
+      font-weight: bold;
+    }
+    .price-info .price-change {
+      font-size: 1.1em;
+      margin-top: 5px;
+    }
+    .price-change.positive { color: #4CAF50; }
+    .price-change.negative { color: #f44336; }
+    .loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #22e1e4;
+      display: none;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div class="header">
+    <h1>🔥 Fuego (XFG/USD)</h1>
+  </div>
+  
+  <div class="chart-container">
+    <div class="price-info" id="priceInfo">
+      <div class="current-price" id="currentPrice">Loading...</div>
+      <div class="price-change" id="priceChange"></div>
+    </div>
+    <div class="loading-indicator" id="loadingIndicator">Loading real XFG data...</div>
+    <div id="chart"></div>
+  </div>
+
+  <script>
+  let chart;
+  let candlestickSeries;
+  let volumeSeries;
+  let allHistoricalData = [];
+
+  async function loadRealHistoricalData() {
+      try {
+          const response = await fetch('./xfg-real-complete-enhanced-v2.json');
+          const text = await response.text();
+          const lines = text.trim().split('\n');
+          
+          allHistoricalData = lines.map((line, index) => {
+              try {
+                  const item = JSON.parse(line);
+                  return {
+                      time: item.period_start,
+                      open: parseFloat(item.open),
+                      high: parseFloat(item.high),
+                      low: parseFloat(item.low),
+                      close: parseFloat(item.close),
+                      volume: parseFloat(item.volume)
+                  };
+              } catch (e) {
+                  console.error(`Error parsing line ${index + 1}: ${e.message}`);
+                  return null;
+              }
+          }).filter(item => item !== null && 
+              !isNaN(item.time) && 
+              !isNaN(item.open) && 
+              !isNaN(item.high) && 
+              !isNaN(item.low) && 
+              !isNaN(item.close) && 
+              !isNaN(item.volume)
+          );
+
+          // Filter out invalid data points
+          allHistoricalData = allHistoricalData.filter(d => 
+              d.time !== null && d.time !== undefined &&
+              d.open !== null && d.open !== undefined &&
+              d.high !== null && d.high !== undefined &&
+              d.low !== null && d.low !== undefined &&
+              d.close !== null && d.close !== undefined &&
+              d.volume !== null && d.volume !== undefined
+          );
+
+          console.log('Valid Filtered Data:', allHistoricalData);
+
+          // Log detailed data information
+          allHistoricalData.forEach((d, index) => {
+              console.log(`Data Point ${index}:`, d);
+          });
+
+          // Validate data before setting
+          allHistoricalData = allHistoricalData.filter(d => 
+              typeof d.time === 'number' &&
+              typeof d.open === 'number' &&
+              typeof d.high === 'number' &&
+              typeof d.low === 'number' &&
+              typeof d.close === 'number' &&
+              typeof d.volume === 'number'
+          );
+
+          console.log('Validated Data:', allHistoricalData);
+
+          // Initialize the chart and series before setting data
+          initializeChart();
+          updateChartData('max');
+
+      } catch (error) {
+          console.error('Error loading XFG data:', error);
+          document.getElementById('loadingIndicator').innerHTML = 
+              `<div style="color:red">Error loading price data: ${error.message}</div>`;
+      }
+  }
+
+  function initializeChart() {
+      const chartElement = document.getElementById('chart');
+      chart = LightweightCharts.createChart(chartElement, {
+          width: chartElement.clientWidth,
+          height: chartElement.clientHeight,
+          layout: {
+              backgroundColor: '#111111',
+              textColor: '#d9d9d9',
+          },
+          grid: {
+              vertLines: { color: '#2B2B43' },
+              horzLines: { color: '#2B2B43' }
+          },
+          timeScale: {
+              timeVisible: true,
+              secondsVisible: false
+          }
+      });
+
+      candlestickSeries = chart.addCandlestickSeries({
+          upColor: '#4bffb5',
+          downColor: '#ff4976',
+          borderDownColor: '#ff4976',
+          borderUpColor: '#4bffb5',
+          wickDownColor: '#ff4976',
+          wickUpColor: '#4bffb5'
+      });
+      candlestickSeries.priceScale().applyOptions({
+          scaleMargins: { top: 0.0, bottom: 0.2 }
+      });
+
+      volumeSeries = chart.addHistogramSeries({
+          color: '#26a69a',
+          priceFormat: { type: 'volume' },
+          priceScaleId: ''
+      });
+      volumeSeries.priceScale().applyOptions({
+          scaleMargins: { top: 0.8, bottom: 0 }
+      });
+
+      window.addEventListener('resize', () => {
+          chart.applyOptions({
+              width: chartElement.clientWidth,
+              height: chartElement.clientHeight
+          });
+      });
+  }
+
+  function updateChartData(range) {
+      let filteredData = allHistoricalData;
+      if (range !== 'max') {
+          const cutoff = Date.now() - (range * 86400000);
+          filteredData = allHistoricalData.filter(d => 
+              new Date(d.time * 1000) >= cutoff
+          );
+      }
+      
+      console.log('Filtered Data:', filteredData);
+      console.log('Data being set on candlestickSeries:', filteredData.map(d => ({
+          time: d.time,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close
+      })));
+      console.log('Data being set on volumeSeries:', filteredData.map(d => ({
+          time: d.time,
+          value: d.volume,
+          color: d.close >= d.open ? '#4bffb54d' : '#ff49764d'
+      })));
+
+      if (candlestickSeries && volumeSeries) {
+          try {
+              candlestickSeries.setData(filteredData.map(d => ({
+                  time: d.time,
+                  open: d.open,
+                  high: d.high,
+                  low: d.low,
+                  close: d.close
+              })));
+          } catch (error) {
+              console.error('Error setting candlestick data:', error);
+          }
+
+          try {
+              volumeSeries.setData(filteredData.map(d => ({
+                  time: d.time,
+                  value: d.volume,
+                  color: d.close >= d.open ? '#4bffb54d' : '#ff49764d'
+              })));
+          } catch (error) {
+              console.error('Error setting volume data:', error);
+          }
+          
+          chart.timeScale().fitContent();
+          updatePriceDisplay(filteredData);
+      } else {
+          console.error('Series not initialized');
+      }
+  }
+
+  function updatePriceDisplay(data) {
+      if (data.length === 0) return;
+      const latest = data[data.length - 1];
+      document.getElementById('currentPrice').textContent = 
+          `$${latest.close.toFixed(6)}`;
+      
+      if (data.length > 1) {
+          const prev = data[data.length - 2].close;
+          const change = ((latest.close - prev) / prev) * 100;
+          const changeElem = document.getElementById('priceChange');
+          changeElem.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+          changeElem.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+      }
+  }
+
+  // Initial load
+  loadRealHistoricalData();
+
+  const localData = [
+    {time: 1547517300, open: 0.0001829155, high: 0.0018291549999999998, low: 0.0001829155, close: 0.0018291549999999998, volume: 100},
+    {time: 1547517600, open: 0.0018291549999999998, high: 0.0018291549999999998, low: 0.0018291549999999998, close: 0.0018291549999999998, volume: 150},
+    {time: 1547526600, open: 0.0004024141, high: 0.0004024141, low: 0.0004024141, close: 0.0004024141, volume: 200},
+    {time: 1547526900, open: 0.0004024141, high: 0.0004024141, low: 0.0004024141, close: 0.0004024141, volume: 250},
+    {time: 1547527200, open: 0.0010243268000000002, high: 0.0010243268000000002, low: 0.0010243268000000002, close: 0.0010243268000000002, volume: 300},
+    {time: 1547527500, open: 0.001097493, high: 0.001097493, low: 0.001097493, close: 0.001097493, volume: 350},
+    {time: 1547527800, open: 0.0016462394999999998, high: 0.002926648, low: 0.0016462394999999998, close: 0.002926648, volume: 400},
+    {time: 1547530800, open: 0.00040416860000000004, high: 0.00040416860000000004, low: 0.00040416860000000004, close: 0.00040416860000000004, volume: 450},
+    {time: 1547532900, open: 0.001102278, high: 0.001102278, low: 0.001102278, close: 0.001102278, volume: 500},
+    {time: 1547533200, open: 0.0007715946, high: 0.00367426, low: 0.0007715946, close: 0.00367426, volume: 550},
+    {time: 1547533500, open: 0.0007715946, high: 0.0007715946, low: 0.0007715946, close: 0.0007715946, volume: 600},
+    {time: 1547535600, open: 0.0055113900000000006, high: 0.007532233, low: 0.0055113900000000006, close: 0.007532233, volume: 650},
+    {time: 1547544600, open: 0.0009553076000000001, high: 0.0009553076000000001, low: 0.0009553076000000001, close: 0.0009553076000000001, volume: 700},
+    {time: 1547544900, open: 0.000918565, high: 0.000918565, low: 0.000918565, close: 0.000918565, volume: 750},
+    {time: 1547545200, open: 0.005878816, high: 0.005878816, low: 0.005878816, close: 0.005878816, volume: 800},
+    {time: 1547546400, open: 0.005878816, high: 0.005878816, low: 0.005878816, close: 0.005878816, volume: 850},
+    {time: 1547547000, open: 0.000918565, high: 0.000918565, low: 0.0008450798, close: 0.0008450798, volume: 900},
+    {time: 1547547300, open: 0.0008083372000000001, high: 0.0008083372000000001, low: 0.00040416860000000004, close: 0.00040416860000000004, volume: 950},
+    {time: 1547547600, open: 0.0003306834, high: 0.0003306834, low: 0.0003306834, close: 0.0003306834, volume: 1000},
+    {time: 1547550000, open: 0.0003306834, high: 0.0033068340000000002, low: 0.0002939408, close: 0.0033068340000000002, volume: 1050},
+    {time: 1547550300, open: 0.004409112, high: 0.00734852, low: 0.004409112, close: 0.00734852, volume: 1100}
+];
+
+// Ensure data integrity before setting it on the chart
+const isValidData = (d) => (
+    d && typeof d.time === 'number' &&
+    typeof d.open === 'number' &&
+    typeof d.high === 'number' &&
+    typeof d.low === 'number' &&
+    typeof d.close === 'number' &&
+    typeof d.volume === 'number'
+);
+
+const validCandlestickData = localData.map(d => ({
+    time: d.time,
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close
+})).filter(isValidData);
+
+const validVolumeData = localData.map(d => ({
+    time: d.time,
+    value: d.volume,
+    color: d.close >= d.open ? '#4bffb54d' : '#ff49764d'
+})).filter(isValidData);
+
+console.log('Valid Candlestick Data:', validCandlestickData);
+console.log('Valid Volume Data:', validVolumeData);
+
+// Ensure the chart and series are initialized before setting data
+initializeChart();
+
+if (candlestickSeries && volumeSeries) {
+    try {
+        candlestickSeries.setData(validCandlestickData);
+    } catch (error) {
+        console.error('Error setting candlestick data:', error);
+    }
+
+    try {
+        volumeSeries.setData(validVolumeData);
+    } catch (error) {
+        console.error('Error setting volume data:', error);
+    }
+
+    chart.timeScale().fitContent();
+} else {
+    console.error('Series not initialized');
+}
+  </script>
+</body>
+</html> 
