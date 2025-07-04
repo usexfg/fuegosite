@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C☯︎LD Banking Suite - Privacy-First DeFi Protocol</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="void-container">
+        <!-- Background effects -->
+        <div class="stars"></div>
+        <div class="nebula"></div>
+        
+        <!-- Header -->
+        <header class="header">
+            <nav class="nav">
+                <div class="logo">
+                    <span class="logo-text">C<span class="yin-yang">☯︎</span>LD</span>
+                    <span class="logo-subtitle">Banking Suite</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#protocol" class="nav-link">Protocol</a>
+                    <a href="#tokens" class="nav-link">Tokens</a>
+                    <a href="#dapp" class="nav-link">dApp</a>
+                    <a href="#docs" class="nav-link">Docs</a>
+                </div>
+                <button class="connect-wallet-btn">Connect Wallet</button>
+            </nav>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <div class="cold-title">
+                    <span class="cold-letter" data-letter="C">C</span>
+                    <span class="cold-letter yin-yang" data-letter="☯︎">☯︎</span>
+                    <span class="cold-letter" data-letter="L">L</span>
+                    <span class="cold-letter" data-letter="D">D</span>
+                </div>
+                <h2 class="hero-subtitle">Certificate Of Ledger Deposit</h2>
+                <p class="hero-description">
+                    Privacy-preserving DeFi protocol powered by zero-knowledge proofs.
+                    Deposit anonymously, earn yield, govern the future.
+                </p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-value">$0</span>
+                        <span class="stat-label">Total Value Locked</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Anonymous Deposits</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">∞</span>
+                        <span class="stat-label">Privacy Level</span>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <button class="primary-btn">Launch dApp</button>
+                    <button class="secondary-btn">Read Whitepaper</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Protocol Overview -->
+        <section id="protocol" class="protocol-section">
+            <div class="container">
+                <h2 class="section-title">Protocol Architecture</h2>
+                <div class="protocol-grid">
+                    <div class="protocol-card">
+                        <div class="card-icon">🔐</div>
+                        <h3>Zero-Knowledge Proofs</h3>
+                        <p>PLONK-based privacy system ensures your deposits remain completely anonymous while proving validity.</p>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="card-icon">❄️</div>
+                        <h3>HEAT Token</h3>
+                        <p>Proof-of-burn token representing staked XFG. Fixed supply, deflationary mechanics, native gas on L3.</p>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="card-icon">☯︎</div>
+                        <h3>C☯︎LD Governance</h3>
+                        <p>Interest-bearing governance token with hard cap of 80. Vote on protocol upgrades and treasury allocation.</p>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="card-icon">🏛️</div>
+                        <h3>DAO Treasury</h3>
+                        <p>Multi-asset treasury funded through bonding. Protocol-owned liquidity for sustainable yield generation.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Token Economics -->
+        <section id="tokens" class="tokens-section">
+            <div class="container">
+                <h2 class="section-title">Tokenomics</h2>
+                <div class="tokens-grid">
+                    <div class="token-card heat-card">
+                        <div class="token-header">
+                            <div class="token-symbol">Ξmbers</div>
+                            <div class="token-name">HEAT</div>
+                        </div>
+                        <div class="token-stats">
+                            <div class="token-stat">
+                                <span class="stat-label">Supply</span>
+                                <span class="stat-value">Fixed</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="stat-label">Type</span>
+                                <span class="stat-value">Proof of Burn</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="stat-label">Ratio</span>
+                                <span class="stat-value">1 XFG = 10M HEAT</span>
+                            </div>
+                        </div>
+                        <p class="token-description">
+                            Deflationary gas token for C☯︎LD L3. Represents burned XFG with fixed supply mechanics.
+                        </p>
+                    </div>
+                    
+                    <div class="token-card o-card">
+                        <div class="token-header">
+                            <div class="token-symbol">☯︎</div>
+                            <div class="token-name">C☯︎LD</div>
+                        </div>
+                        <div class="token-stats">
+                            <div class="token-stat">
+                                <span class="stat-label">Max Supply</span>
+                                <span class="stat-value">80</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="stat-label">Type</span>
+                                <span class="stat-value">Governance</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="stat-label">Yield</span>
+                                <span class="stat-value">Interest Bearing</span>
+                            </div>
+                        </div>
+                        <p class="token-description">
+                            Ultra-scarce governance token with built-in yield. Vote on protocol decisions and earn from treasury performance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- dApp Interface -->
+        <section id="dapp" class="dapp-section">
+            <div class="container">
+                <h2 class="section-title">Protocol Interface</h2>
+                <div class="dapp-interface">
+                    <div class="interface-tabs">
+                        <button class="tab-btn active" data-tab="deposit">Deposit</button>
+                        <button class="tab-btn" data-tab="withdraw">Withdraw</button>
+                        <button class="tab-btn" data-tab="governance">Governance</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="deposit-tab">
+                        <div class="deposit-form">
+                            <h3>Anonymous Deposit</h3>
+                            <div class="input-group">
+                                <label>Deposit Amount</label>
+                                <div class="amount-input">
+                                    <input type="number" placeholder="0.0" id="deposit-amount">
+                                    <span class="currency">XFG</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Recipient Address (Optional)</label>
+                                <input type="text" placeholder="0x..." id="recipient-address">
+                            </div>
+                            <div class="privacy-notice">
+                                <div class="privacy-icon">🛡️</div>
+                                <p>Your deposit will be completely anonymous. A zero-knowledge proof will be generated to verify your claim without revealing your identity.</p>
+                            </div>
+                            <button class="deposit-btn">Generate Proof & Deposit</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="withdraw-tab">
+                        <div class="withdraw-form">
+                            <h3>Claim Rewards</h3>
+                            <div class="proof-upload">
+                                <label>Upload Proof File</label>
+                                <div class="file-upload-area">
+                                    <input type="file" id="proof-file" accept=".json">
+                                    <div class="upload-text">
+                                        <span>Drop proof file here or click to browse</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Withdrawal Address</label>
+                                <input type="text" placeholder="0x..." id="withdraw-address">
+                            </div>
+                            <button class="withdraw-btn">Verify Proof & Claim</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="governance-tab">
+                        <div class="governance-panel">
+                            <h3>DAO Governance</h3>
+                            <div class="governance-stats">
+                                <div class="gov-stat">
+                                    <span class="gov-value">0</span>
+                                    <span class="gov-label">Active Proposals</span>
+                                </div>
+                                <div class="gov-stat">
+                                    <span class="gov-value">0</span>
+                                    <span class="gov-label">Your C☯︎LD Balance</span>
+                                </div>
+                                <div class="gov-stat">
+                                    <span class="gov-value">0%</span>
+                                    <span class="gov-label">Participation Rate</span>
+                                </div>
+                            </div>
+                            <div class="proposals-list">
+                                <div class="no-proposals">
+                                    <p>No active proposals. C☯︎LD holders can create proposals to govern the protocol.</p>
+                                </div>
+                            </div>
+                            <button class="create-proposal-btn">Create Proposal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-section">
+                        <h4>C☯︎LD Protocol</h4>
+                        <p>Privacy-preserving DeFi infrastructure built on zero-knowledge proofs and decentralized governance.</p>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Resources</h4>
+                        <ul>
+                            <li><a href="#">Documentation</a></li>
+                            <li><a href="#">Whitepaper</a></li>
+                            <li><a href="#">GitHub</a></li>
+                            <li><a href="#">Audit Reports</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Community</h4>
+                        <ul>
+                            <li><a href="#">Discord</a></li>
+                            <li><a href="#">Twitter</a></li>
+                            <li><a href="#">Telegram</a></li>
+                            <li><a href="#">Forum</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Protocol Stats</h4>
+                        <div class="protocol-stats">
+                            <div class="protocol-stat">
+                                <span class="stat-value">$0</span>
+                                <span class="stat-label">TVL</span>
+                            </div>
+                            <div class="protocol-stat">
+                                <span class="stat-value">80</span>
+                                <span class="stat-label">Max C☯︎LD Supply</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2024 C☯︎LD Protocol. Building the future of private DeFi.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
