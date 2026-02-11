@@ -27,7 +27,7 @@ This document provides instructions for setting up the community forum using Gis
 After setting up Giscus, you may need to update the configuration in `community.html`:
 
 1. Open `community.html`
-2. Find the Giscus script section (around line 250)
+2. Find the Giscus script section (around line 295)
 3. Update the data attributes with the values provided by Giscus:
    - `data-repo`
    - `data-repo-id`
@@ -48,13 +48,6 @@ If the comments section doesn't appear:
 2. Check that the data attributes in the script match the Giscus configuration
 3. Verify that the repository is public (required for Giscus)
 4. Check the browser console for any JavaScript errors
-
-## Customization
-
-You can customize the appearance by modifying:
-- The color scheme in the CSS variables
-- The layout and styling in the CSS section
-- The content and structure in the HTML sections
 
 ## Privacy Considerations
 
