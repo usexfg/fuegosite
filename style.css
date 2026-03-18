@@ -197,7 +197,7 @@ nav {
 }
 
 .nav-links a:hover {
-  color: var(--white);
+  color: var(--fire);
 }
 
 .nav-toggle {
