@@ -72,7 +72,7 @@ body::before {
   overflow-y: auto;
   overflow-x: hidden;
   opacity: 0;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.8s ease;
   pointer-events: none;
   z-index: 0;
 }
