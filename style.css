@@ -680,6 +680,159 @@ a.eco-card-link:hover {
 }
 
 
+/* --- ATOMIC SWAPS --- */
+.swap-pairs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.swap-card {
+  border: 1px solid var(--gray-800);
+  border-radius: 12px;
+  padding: 32px;
+  transition: border-color 0.3s var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.swap-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.swap-xmr::before {
+  background: linear-gradient(90deg, transparent, #FF6600, transparent);
+}
+
+.swap-eth::before {
+  background: linear-gradient(90deg, transparent, #627EEA, transparent);
+}
+
+.swap-bch::before {
+  background: linear-gradient(90deg, transparent, #0AC18E, transparent);
+}
+
+.swap-card:hover {
+  border-color: var(--gray-700);
+}
+
+.swap-pair-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.swap-xmr .swap-pair-badge { color: #FF6600; }
+.swap-eth .swap-pair-badge { color: #627EEA; }
+.swap-bch .swap-pair-badge { color: #0AC18E; }
+
+.swap-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.swap-card > p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-500);
+  margin-bottom: 20px;
+}
+
+.swap-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swap-detail span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-600);
+  background: var(--gray-900);
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.swap-flow {
+  margin-top: 48px;
+}
+
+.swap-flow-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  margin-bottom: 20px;
+}
+
+.swap-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.swap-tui {
+  margin-top: 48px;
+}
+
+.swap-tui-inner {
+  border: 1px solid var(--gray-800);
+  border-radius: 12px;
+  padding: 32px;
+  background: var(--black);
+}
+
+.swap-tui-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.swap-tui-desc {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.swap-tui-preview {
+  background: var(--gray-950);
+  border: 1px solid var(--gray-800);
+  border-radius: 8px;
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.swap-tui-preview pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--gray-400);
+  margin: 0;
+}
+
+.tui-blue { color: #627EEA; }
+.tui-gold { color: #FFD700; }
+.tui-green { color: #00FF7F; }
+.tui-fire { color: var(--fire); }
+.tui-dim { color: #666666; }
+
+
 /* --- ELDERFIERS --- */
 .ef-grid {
   display: grid;
@@ -954,6 +1107,15 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .swap-pairs {
+    grid-template-columns: 1fr;
+  }
+
+  .swap-steps {
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .ef-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
@@ -1043,6 +1205,8 @@ footer {
   .pillar,
   .wallet-card,
   .eco-card,
+  .swap-card,
+  .swap-tui-inner,
   .ef-item,
   .rm-item,
   .spec-row {
@@ -1061,6 +1225,10 @@ footer {
   .eco-card:nth-child(1) { animation-delay: 0.1s; }
   .eco-card:nth-child(2) { animation-delay: 0.2s; }
   .eco-card:nth-child(3) { animation-delay: 0.3s; }
+
+  .swap-card:nth-child(1) { animation-delay: 0.1s; }
+  .swap-card:nth-child(2) { animation-delay: 0.2s; }
+  .swap-card:nth-child(3) { animation-delay: 0.3s; }
 
   .ef-item:nth-child(1) { animation-delay: 0.05s; }
   .ef-item:nth-child(2) { animation-delay: 0.1s; }

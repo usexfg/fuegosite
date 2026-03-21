@@ -44,6 +44,7 @@
         <a href="#why">Why</a>
         <a href="#vault">Vault</a>
         <a href="#ecosystem">Ecosystem</a>
+        <a href="#swaps">Swaps</a>
         <a href="#elderfiers">Ξlderfiers</a>
         <a href="#specs">Specs</a>
         <a href="https://github.com/usexfg" target="_blank" rel="noopener">GitHub</a>
@@ -288,7 +289,101 @@
       </section>
     </div>
 
-    <!-- 4: ELDERFIERS -->
+    <!-- 4: ATOMIC SWAPS -->
+    <div class="page-section" data-section="swaps">
+      <section class="section section-dark" id="swaps">
+        <div class="container">
+          <div class="section-label">Atomic Swaps</div>
+          <h2>Trustless trading.</h2>
+          <p class="section-sub">No exchange. No KYC. No custodian. Hash-locked contracts enforce every trade — your keys never leave your machine. Trustless, cross-chain, peer-to-peer.</p>
+
+          <div class="swap-pairs">
+
+            <div class="swap-card swap-eth">
+              <div class="swap-pair-badge">ETH ↔ XFG</div>
+              <h3>Ethereum</h3>
+              <p>Standard HTLC on both sides. Solidity contract on Ethereum, native hash-lock output on Fuego. A less private alternative to XFG burns, but enables ETH to become untraceable once inside Fuego Bank.</p>
+              <div class="swap-detail">
+                <span>HTLC</span>
+                <span>Solidity</span>
+                <span>SHA-256</span>
+              </div>
+            </div>
+
+            <div class="swap-card swap-xmr">
+              <div class="swap-pair-badge">XMR ↔ XFG</div>
+              <h3>Monero</h3>
+              <p>Ed25519/CryptoNote. Using adaptor signatures (DLEQ proofs) on XMR side, while XFG side uses native HTLC. The gold standard of private-to-private swaps.</p>
+              <div class="swap-detail">
+                <span>Adaptor sigs</span>
+                <span>Ed25519</span>
+                <span>COMIT protocol</span>
+              </div>
+            </div>
+
+            <div class="swap-card swap-bch">
+              <div class="swap-pair-badge">BCH ↔ XFG</div>
+              <h3>Bitcoin Cash</h3>
+              <p>BCH|XFG uses OP_HASH160 + OP_CHECKLOCKTIMEVERIFY — scripting for HTLC-based atomic swaps. Swap your satoshis in/out of Fuego's realm of privacy.</p>
+              <div class="swap-detail">
+                <span>P2SH</span>
+                <span>Bitcoin Script</span>
+                <span>CLTV</span>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="swap-flow">
+            <div class="swap-flow-label">How a swap works</div>
+            <div class="swap-steps">
+              <div class="ef-step">
+                <span class="ef-step-num">1</span>
+                <span>Browse offers or post your own</span>
+              </div>
+              <div class="ef-arrow">&rarr;</div>
+              <div class="ef-step">
+                <span class="ef-step-num">2</span>
+                <span>Generate hashlock &amp; lock your side</span>
+              </div>
+              <div class="ef-arrow">&rarr;</div>
+              <div class="ef-step">
+                <span class="ef-step-num">3</span>
+                <span>Counterparty locks their side</span>
+              </div>
+              <div class="ef-arrow">&rarr;</div>
+              <div class="ef-step">
+                <span class="ef-step-num">4</span>
+                <span>Claim reveals preimage, completing the swap</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="swap-tui">
+            <div class="swap-tui-inner">
+              <div class="swap-tui-header">
+                <code>xfg-eth-swap</code>
+                <span class="swap-tui-desc">Terminal swap client for ETH holders</span>
+              </div>
+              <div class="swap-tui-preview">
+<pre><span class="tui-blue">◆ XFG⇄ETH</span>  <span class="tui-gold">1 XFG = 0.0000420 ETH</span>  <span class="tui-dim">($0.0840)</span>
+
+  <span class="tui-dim">OFFER       XFG AMOUNT     RATE (XFG/ETH)    ETH VALUE  AGE</span>
+  <span class="tui-green">a3f8c012      80.00 XFG          23809.5   0.003360 ETH  12m</span>
+  <span class="tui-green">7b2e9d44       8.00 XFG          23809.5   0.000336 ETH  1h</span>
+
+  <span class="tui-dim">&gt;</span> accept a3f8
+  <span class="tui-fire">SWAP INITIATED — Lock 0.003360 ETH with hashlock e7a2b9c1...</span></pre>
+              </div>
+              <a href="https://github.com/usexfg/fuego/tree/HTLC/xfg-eth-swap" class="btn btn-sm" target="_blank" rel="noopener">View Source</a>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+    <!-- 5: ELDERFIERS -->
     <div class="page-section" data-section="elderfiers">
       <section class="section section-dark" id="elderfiers">
         <div class="container">
