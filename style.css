@@ -832,6 +832,15 @@ a.eco-card-link:hover {
 .tui-fire { color: var(--fire); }
 .tui-dim { color: #666666; }
 
+.version-note {
+  font-family: var(--font-mono);
+  font-size: 0.4em;
+  font-weight: 500;
+  color: var(--fire);
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
 
 /* --- ELDERFIERS --- */
 .ef-grid {
