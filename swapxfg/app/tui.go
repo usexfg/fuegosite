@@ -27,6 +27,20 @@ type tuiModel struct {
 	data       *AllPairData
 	connected  bool
 
+	// CD market sub-model
+	cdMarket CdMarketModel
+
+	// Browser bridge (MetaMask / Phantom)
+	bridge  *BridgeServer
+	ethAddr string
+	ethBal  string
+	solAddr string
+	solBal  string
+
+	// BCH / Electron Cash
+	bch    *BchClient
+	bchBal string
+
 	// Wallet state
 	balance    *WalletBalance
 	walletAddr string
@@ -47,6 +61,7 @@ type refreshMsg struct {
 	err     error
 	balance *WalletBalance
 	balErr  error
+	bchBal  string // formatted BCH balance, empty if unavailable
 }
 
 type refreshTickMsg time.Time
@@ -71,14 +86,19 @@ func newTuiModel(cfg Config) tuiModel {
 		client:     NewFuegoClient(cfg.DaemonRPC),
 		activePair: cfg.StartPair,
 		data: &AllPairData{
-			Offers: make(map[uint8][]SwapOffer),
-			Prices: make(map[uint8]*SwapPriceResponse),
-			Trades: make(map[uint8][]SwapTrade),
+			Offers:   make(map[uint8][]SwapOffer),
+			Prices:   make(map[uint8]*SwapPriceResponse),
+			Trades:   make(map[uint8][]SwapTrade),
+			CdPrices: make(map[uint64]*CdPriceStats),
 		},
+		cdMarket: newCdMarketModel(),
 		cursorOn: true,
 	}
 	if cfg.WalletRPC != "" {
 		m.wallet = NewWalletClient(cfg.WalletRPC)
+	}
+	if !cfg.NoBch && cfg.BchRPC != "" {
+		m.bch = NewBchClient(cfg.BchRPC)
 	}
 	return m
 }
@@ -94,6 +114,7 @@ func (m tuiModel) Init() tea.Cmd {
 func (m tuiModel) fetchData() tea.Cmd {
 	client := m.client
 	wallet := m.wallet
+	bch := m.bch
 	return func() tea.Msg {
 		data, err := client.FetchAll(ActivePairs)
 		msg := refreshMsg{data: data, err: err}
@@ -101,6 +122,11 @@ func (m tuiModel) fetchData() tea.Cmd {
 			bal, balErr := wallet.GetBalance()
 			msg.balance = bal
 			msg.balErr = balErr
+		}
+		if bch != nil {
+			if bal, berr := bch.GetBalance(); berr == nil {
+				msg.bchBal = FormatBchBalance(bal)
+			}
 		}
 		return msg
 	}
@@ -124,9 +150,14 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.connected = true
 			m.lastErr = ""
 			m.data = msg.data
+			m.cdMarket.offers = msg.data.CdOffers
+			m.cdMarket.prices = msg.data.CdPrices
 		}
 		if msg.balance != nil {
 			m.balance = msg.balance
+		}
+		if msg.bchBal != "" {
+			m.bchBal = msg.bchBal
 		}
 
 	case refreshTickMsg:
@@ -189,7 +220,21 @@ func (m tuiModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		return m, m.fetchData()
 	case "?":
-		m.statusMsg = "0-3: pairs  /: cmd  r: refresh  q: quit"
+		m.statusMsg = "0-3: pairs  c: CD market  /: cmd  r: refresh  q: quit"
+	case "up":
+		if m.activePair == PairCD {
+			m.cdMarket.moveUp()
+		}
+	case "down":
+		if m.activePair == PairCD {
+			m.cdMarket.moveDown()
+		}
+	case "enter":
+		if m.activePair == PairCD {
+			if o := m.cdMarket.selectedOffer(); o != nil {
+				m.statusMsg = fmt.Sprintf("accept offer %s (enter: confirm <addr> <amt> <pair>)", o.OfferID[:min(12, len(o.OfferID))])
+			}
+		}
 	default:
 		if len(k) == 1 {
 			r := rune(k[0])
@@ -316,8 +361,233 @@ func (m *tuiModel) handleCommand(cmd string) {
 			return "alice"
 		}())
 
+	case "connect":
+		// connect metamask | connect phantom
+		if len(parts) < 2 {
+			m.statusMsg = "usage: connect metamask | connect phantom"
+			return
+		}
+		if m.bridge == nil {
+			m.statusMsg = "bridge not running (start with --bridge-port or omit --no-bridge)"
+			return
+		}
+		switch parts[1] {
+		case "metamask":
+			if err := m.bridge.OpenEthBridge(); err != nil {
+				m.statusMsg = "open eth bridge: " + err.Error()
+				return
+			}
+			m.statusMsg = fmt.Sprintf("MetaMask bridge at %s — open it in your browser", m.bridge.EthURL())
+			go func() {
+				if addr, err := m.bridge.EthGetAddress(); err == nil {
+					m.ethAddr = addr
+					if bal, err2 := m.bridge.EthGetBalance(addr); err2 == nil {
+						m.ethBal = bal
+					}
+					m.statusMsg = "MetaMask connected: " + addr[:min(12, len(addr))] + "..."
+				}
+			}()
+		case "phantom":
+			if err := m.bridge.OpenSolBridge(); err != nil {
+				m.statusMsg = "open sol bridge: " + err.Error()
+				return
+			}
+			m.statusMsg = fmt.Sprintf("Phantom bridge at %s — open it in your browser", m.bridge.SolURL())
+		case "bch":
+			if m.bch == nil {
+				m.statusMsg = "BCH not configured (use --bch-rpc <endpoint>)"
+				return
+			}
+			go func() {
+				if m.bch.IsConnected() {
+					if bal, err := m.bch.GetBalance(); err == nil {
+						m.bchBal = FormatBchBalance(bal)
+						m.statusMsg = "BCH connected: " + m.bchBal
+					} else {
+						m.statusMsg = "BCH connected but balance error: " + err.Error()
+					}
+				} else {
+					m.statusMsg = "BCH: cannot connect to Electron Cash at " + m.bch.endpoint
+				}
+			}()
+		default:
+			m.statusMsg = "usage: connect metamask | connect phantom | connect bch"
+		}
+
+	case "bch":
+		// bch lock <amount_bch> <hashlock_hex> <timeout_blocks> <counterparty_bch_addr>
+		// bch claim <htlc_txid> <htlc_vout> <preimage_hex>
+		// bch refund <htlc_txid> <htlc_vout>
+		if len(parts) < 2 {
+			m.statusMsg = "usage: bch lock|claim|refund ..."
+			return
+		}
+		if m.bch == nil {
+			m.statusMsg = "BCH not configured (use --bch-rpc or connect bch)"
+			return
+		}
+		switch parts[1] {
+		case "lock":
+			if len(parts) < 6 {
+				m.statusMsg = "usage: bch lock <amount_bch> <hashlock_hex> <timeout_blocks> <counterparty_bch_addr>"
+				return
+			}
+			amtBCH, hashlock, timeoutBlocks, counterpartyAddr := parts[2], parts[3], parts[4], parts[5]
+			go func(amt, hl, tbl, cAddr string) {
+				// Get the P2SH HTLC address from SwapDaemon via fuegod (SwapDaemon builds
+				// the HTLC script and exposes the P2SH address as part of initiating a BCH swap).
+				// For now we use the counterparty address directly as a placeholder until
+				// SwapDaemon has a /getbchhtlcaddress endpoint.
+				_ = hl
+				_ = tbl
+				txHex, err := m.bch.PayTo(cAddr, amt)
+				if err != nil {
+					m.statusMsg = "bch lock (payto) failed: " + err.Error()
+					return
+				}
+				txid, err := m.bch.BroadcastTx(txHex)
+				if err != nil {
+					m.statusMsg = "bch lock (broadcast) failed: " + err.Error()
+					return
+				}
+				m.statusMsg = fmt.Sprintf("bch lock tx: %s... (%.8s BCH to %s)", txid[:min(16, len(txid))], amt, cAddr[:min(12, len(cAddr))])
+			}(amtBCH, hashlock, timeoutBlocks, counterpartyAddr)
+
+		case "claim":
+			if len(parts) < 5 {
+				m.statusMsg = "usage: bch claim <htlc_txid> <htlc_vout> <preimage_hex>"
+				return
+			}
+			htlcTxid, htlcVout, preimage := parts[2], parts[3], parts[4]
+			go func(txid, vout, pre string) {
+				// SwapDaemon (via /processswap) builds the claim tx using C++ HtlcScript.
+				// Trigger processSwap then broadcast the resulting tx.
+				var processResp struct {
+					Advanced bool   `json:"advanced"`
+					NewState string `json:"new_state"`
+					Status   string `json:"status"`
+				}
+				req := map[string]interface{}{"swap_id": txid + ":" + vout}
+				if err := m.client.post("/processswap", req, &processResp); err != nil {
+					m.statusMsg = "bch claim (processswap) failed: " + err.Error()
+					return
+				}
+				if processResp.Advanced {
+					m.statusMsg = fmt.Sprintf("bch claim: swap advanced → %s (preimage: %s...)", processResp.NewState, pre[:min(8, len(pre))])
+				} else {
+					m.statusMsg = "bch claim: swap not yet advanceable (check chain state)"
+				}
+			}(htlcTxid, htlcVout, preimage)
+
+		case "refund":
+			if len(parts) < 4 {
+				m.statusMsg = "usage: bch refund <htlc_txid> <htlc_vout>"
+				return
+			}
+			htlcTxid, htlcVout := parts[2], parts[3]
+			go func(txid, vout string) {
+				var refundResp struct{ Status string `json:"status"` }
+				req := map[string]interface{}{"swap_id": txid + ":" + vout}
+				if err := m.client.post("/refundswap", req, &refundResp); err != nil {
+					m.statusMsg = "bch refund failed: " + err.Error()
+					return
+				}
+				m.statusMsg = "bch refund: " + refundResp.Status
+			}(htlcTxid, htlcVout)
+
+		default:
+			m.statusMsg = "usage: bch lock|claim|refund ..."
+		}
+
+	case "eth":
+		// eth lock <amount_eth> <htlc_contract> <hashlock> <timeout>
+		if len(parts) < 5 || parts[1] != "lock" {
+			m.statusMsg = "usage: eth lock <amount_wei> <htlc_contract> <hashlock> <timeout_hex>"
+			return
+		}
+		if m.bridge == nil || !m.bridge.IsConnected() {
+			m.statusMsg = "MetaMask not connected (try: connect metamask)"
+			return
+		}
+		amtWei, htlcAddr, hashlock, timeout := parts[2], parts[3], parts[4], ""
+		if len(parts) > 5 {
+			timeout = parts[5]
+		}
+		// calldata: lock(bytes32 hashlock, uint256 timeout)
+		calldata := "0x" + hashlock + timeout
+		go func(to, value, data string) {
+			txHash, err := m.bridge.EthSendTransaction(to, value, data)
+			if err != nil {
+				m.statusMsg = "eth lock failed: " + err.Error()
+				return
+			}
+			m.statusMsg = "eth lock tx: " + txHash[:min(20, len(txHash))] + "..."
+		}(htlcAddr, amtWei, calldata)
+
+	case "sell":
+		// sell cd <key_image> <ask_price_xfg>
+		if len(parts) < 4 || parts[1] != "cd" {
+			m.statusMsg = "usage: sell cd <key_image> <ask_price_xfg>"
+			return
+		}
+		if m.wallet == nil {
+			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
+			return
+		}
+		keyImage := parts[2]
+		var askF float64
+		fmt.Sscanf(parts[3], "%f", &askF)
+		askAtomic := uint64(askF * 1e7)
+		go func(ki string, ask uint64) {
+			// wallet must sign the offer — stub until wallet endpoint added
+			m.statusMsg = fmt.Sprintf("sell cd: key_image=%s ask=%.7f XFG (signing not yet wired)", ki, float64(ask)/1e7)
+		}(keyImage, askAtomic)
+
+	case "cancel":
+		// cancel <offer_id>
+		if len(parts) < 2 {
+			m.statusMsg = "usage: cancel <offer_id>"
+			return
+		}
+		if m.wallet == nil {
+			m.statusMsg = "no wallet connected"
+			return
+		}
+		offerID := parts[1]
+		go func(id string) {
+			if err := m.client.CancelCdOffer(id, "", ""); err != nil {
+				m.statusMsg = "cancel failed: " + err.Error()
+			} else {
+				m.statusMsg = "offer cancelled: " + id[:min(12, len(id))]
+			}
+		}(offerID)
+
+	case "accept":
+		// accept [offer_id]  — uses selected row if no arg
+		var offerID string
+		if len(parts) >= 2 {
+			offerID = parts[1]
+		} else if o := m.cdMarket.selectedOffer(); o != nil {
+			offerID = o.OfferID
+		} else {
+			m.statusMsg = "usage: accept <offer_id> (or select a row in CD tab)"
+			return
+		}
+		if m.wallet == nil {
+			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
+			return
+		}
+		go func(id string) {
+			resp, err := m.client.AcceptCdOffer(id, "")
+			if err != nil {
+				m.statusMsg = "accept failed: " + err.Error()
+				return
+			}
+			m.statusMsg = fmt.Sprintf("partial tx ready (expires blk %d): %s...", resp.ExpiresAt, resp.PartialTx[:min(20, len(resp.PartialTx))])
+		}(offerID)
+
 	case "help":
-		m.statusMsg = "pair <name> | initiate <alias> <amt> <pair> | confirm <addr> <amt> <pair> | swap initiate <amt> <pubkey> <pair> | r: refresh | q: quit"
+		m.statusMsg = "pair <name> | c: CD | connect metamask|phantom|bch | bch lock|claim|refund | eth lock | sell cd | accept [id] | initiate <alias> <amt> <pair> | confirm <addr> <amt> <pair> | q: quit"
 	default:
 		m.statusMsg = "unknown: " + cmd + " (type help)"
 	}
@@ -328,13 +598,16 @@ func pairToID(pair string) uint8 {
 	return PairFromString(strings.ToLower(pair))
 }
 
+// allPairsWithCD includes CD as the last tab in the rotation.
+var allPairsWithCD = append(ActivePairs, PairCD)
+
 func nextPair(cur uint8) uint8 {
-	for i, p := range ActivePairs {
+	for i, p := range allPairsWithCD {
 		if p == cur {
-			return ActivePairs[(i+1)%len(ActivePairs)]
+			return allPairsWithCD[(i+1)%len(allPairsWithCD)]
 		}
 	}
-	return ActivePairs[0]
+	return allPairsWithCD[0]
 }
 
 // ─── view ─────────────────────────────────────────────────────────────
@@ -357,56 +630,74 @@ func (m tuiModel) View() string {
 	}
 
 	// ── Ticker ──
-	ticker := RenderTicker(m.activePair, m.data.Prices, m.data.Height, w, m.connected)
+	ticker := RenderTickerWithCD(m.activePair, m.data.Prices, m.data.CdOffers, m.data.Height, w, m.connected)
 
-	// ── Main area: chart (left 60%) | orderbook+tape (right 40%) ──
-	rightW := w * 38 / 100
-	if rightW < 30 {
-		rightW = 30
-	}
-	leftW := w - rightW - 3 // 3 for border
-	if leftW < 20 {
-		leftW = 20
-	}
+	// ── Main area ──
+	var mainArea string
+	if m.activePair == PairCD {
+		mainArea = RenderCdMarket(&m.cdMarket, w, mainH)
+	} else {
+		// chart (left 60%) | orderbook+tape (right 40%)
+		rightW := w * 38 / 100
+		if rightW < 30 {
+			rightW = 30
+		}
+		leftW := w - rightW - 3 // 3 for border
+		if leftW < 20 {
+			leftW = 20
+		}
 
-	// Chart
-	chartH := mainH - 2 // leave room for price line
-	if chartH < 3 {
-		chartH = 3
-	}
-	trades := m.data.Trades[m.activePair]
-	chart := RenderChart(trades, leftW, chartH)
-	priceLine := RenderPriceLine(m.activePair, m.data.Prices)
-	leftPanel := lipgloss.JoinVertical(lipgloss.Left, chart, priceLine)
+		chartH := mainH - 2
+		if chartH < 3 {
+			chartH = 3
+		}
+		trades := m.data.Trades[m.activePair]
+		chart := RenderChart(trades, leftW, chartH)
+		priceLine := RenderPriceLine(m.activePair, m.data.Prices)
+		leftPanel := lipgloss.JoinVertical(lipgloss.Left, chart, priceLine)
 
-	// Orderbook + tape
-	obH := mainH * 55 / 100
-	if obH < 5 {
-		obH = 5
-	}
-	tapeH := mainH - obH
-	if tapeH < 3 {
-		tapeH = 3
-	}
+		obH := mainH * 55 / 100
+		if obH < 5 {
+			obH = 5
+		}
+		tapeH := mainH - obH
+		if tapeH < 3 {
+			tapeH = 3
+		}
 
-	offers := m.data.Offers[m.activePair]
-	ob := RenderOrderbook(offers, rightW, obH)
-	tape := RenderTape(trades, rightW, tapeH)
-	rightPanel := lipgloss.JoinVertical(lipgloss.Left, ob, tape)
+		offers := m.data.Offers[m.activePair]
+		ob := RenderOrderbook(offers, rightW, obH)
+		tape := RenderTape(m.data.Trades[m.activePair], rightW, tapeH)
+		rightPanel := lipgloss.JoinVertical(lipgloss.Left, ob, tape)
 
-	// Join left | right with separator
-	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(
-		strings.Repeat("│\n", mainH))
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, sep, rightPanel)
+		sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(
+			strings.Repeat("│\n", mainH))
+		mainArea = lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, sep, rightPanel)
+	}
 
 	// ── Input bar ──
-	balStr := ""
+	xfgBal := ""
 	if m.wallet != nil && m.balance != nil {
-		balStr = FormatBalance(m.balance.Available) + " XFG"
+		xfgBal = FormatBalance(m.balance.Available)
 	} else if m.wallet != nil {
-		balStr = "syncing..."
+		xfgBal = "syncing..."
 	}
-	inputBar := RenderInputBar(m.cmdBuf, m.cursorOn && m.cmdFocus, balStr, m.cfg.DaemonRPC, m.connected, w)
+	// ETH balance: convert wei → ETH for display
+	ethBalStr := ""
+	if m.ethBal != "" {
+		var weiF float64
+		fmt.Sscanf(m.ethBal, "%f", &weiF)
+		ethBalStr = fmt.Sprintf("%.4f ETH", weiF/1e18)
+	}
+	// Combined right-side balance: XFG + ETH inline, BCH handled by input bar
+	if ethBalStr != "" {
+		if xfgBal != "" {
+			xfgBal += "  " + ethBalStr
+		} else {
+			xfgBal = ethBalStr
+		}
+	}
+	inputBar := RenderInputBar(m.cmdBuf, m.cursorOn && m.cmdFocus, xfgBal, m.bchBal, m.cfg.DaemonRPC, m.connected, w)
 
 	// ── Status ──
 	status := ""

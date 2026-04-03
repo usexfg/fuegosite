@@ -18,8 +18,20 @@ func Run(cfg Config) error {
 		}
 	}
 
+	// Bridge server (MetaMask / Phantom)
+	var bridge *BridgeServer
+	if !cfg.NoBridge {
+		b, err := NewBridgeServer(cfg.BridgePort)
+		if err == nil {
+			bridge = b
+			defer bridge.Stop()
+		}
+		// non-fatal: TUI works without bridge
+	}
+
 	// Main trading TUI
 	tui := newTuiModel(cfg)
+	tui.bridge = bridge
 	p := tea.NewProgram(tui, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)

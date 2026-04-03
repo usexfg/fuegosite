@@ -123,6 +123,7 @@ const command_line::arg_descriptor<uint16_t> arg_daemon_port = { "daemon-port", 
 const command_line::arg_descriptor<uint32_t> arg_log_level = { "set_log", "", INFO, true };
 const command_line::arg_descriptor<bool> arg_testnet = { "testnet", "Used to deploy test nets. The daemon must be launched with --testnet flag", false };
 const command_line::arg_descriptor< std::vector<std::string> > arg_command = { "command", "" };
+const command_line::arg_descriptor<uint16_t> arg_wallet_rpc_port = { "wallet-rpc-port", "Wallet RPC port for swapxfg (enables balance + swap signing in TUI)", 0 };
 
 bool parseUrlAddress(const std::string& url, std::string& address, uint16_t& port) {
   auto pos = url.find("://");
@@ -537,14 +538,10 @@ simple_wallet::simple_wallet(System::Dispatcher& dispatcher, const CryptoNote::C
   // Deposit commands
   // TODO: May re-enable 'deposit' command later for backward compatibility
   // m_consoleHandler.setHandler("deposit", boost::bind(&simple_wallet::deposit, this, boost::arg<1>()), "deposit <amount> <term_code> - Create a COLD deposit (0.8, 8, 80, 800 XFG with terms 3=3mo, 12=1yr). ETH address provided at claim time for privacy.");
-  // HEAT/COLD deposits temporarily disabled on mainnet - focus on elderfier registration first
-  // These will be re-enabled in the next release after elderfiers are registered
   // TODO: Re-enable burn and cold commands in next release
   // m_consoleHandler.setHandler("burn", boost::bind(&simple_wallet::burn, this, boost::arg<1>()), "burn <amount> - Create a HEAT burn deposit (0.8, 8, 80, 800 XFG). Term automatically set to FOREVER.");
   // m_consoleHandler.setHandler("cold", boost::bind(&simple_wallet::cold, this, boost::arg<1>()), "cold <amount> <term_code> - Create a COLD deposit (0.8, 8, 80, 800 XFG with terms 3=3mo, 12=1yr).");
-  m_consoleHandler.setHandler("elderking_ceremony", boost::bind(&simple_wallet::elderking_ceremony, this, boost::arg<1>()), "elderking_ceremony - Begins Ælderfire StayKing Ceremony. Details on what is, & how to become, an Ξlderfier (interactive, 20 deposits across all tiers, 4,444 XFG req'd).");
   m_consoleHandler.setHandler("withdraw", boost::bind(&simple_wallet::withdraw, this, boost::arg<1>()), "withdraw <id> - Withdraw a deposit");
-  m_consoleHandler.setHandler("unstake", boost::bind(&simple_wallet::unstake, this, boost::arg<1>()), "unstake - Batch-withdraw all Elderfier staking deposits (single tx)");
   m_consoleHandler.setHandler("list_cold", boost::bind(&simple_wallet::list_cold, this, boost::arg<1>()), "list_cold - List all COLD yield deposits");
   m_consoleHandler.setHandler("cold_info", boost::bind(&simple_wallet::cold_info, this, boost::arg<1>()), "cold_info <id> - Get detailed info on your Certificate of Ledger Deposits");
   m_consoleHandler.setHandler("list_burns", boost::bind(&simple_wallet::list_burns, this, boost::arg<1>()), "list_burns - List all XFG burn transactions (HEAT)");
@@ -556,9 +553,7 @@ simple_wallet::simple_wallet(System::Dispatcher& dispatcher, const CryptoNote::C
   m_consoleHandler.setHandler("initiate_swap", boost::bind(&simple_wallet::initiate_swap, this, boost::arg<1>()), "initiate_swap <amount> <peer_pubkey> <pair> [role] - Start adaptor-sig atomic swap (Musig2 escrow)");
   m_consoleHandler.setHandler("complete_swap", boost::bind(&simple_wallet::complete_swap, this, boost::arg<1>()), "complete_swap <adaptor_secret> <peer_partial_sig> <tx_prefix_hash> - Complete swap with revealed adaptor secret");
   m_consoleHandler.setHandler("refund_swap", boost::bind(&simple_wallet::refund_swap, this, boost::arg<1>()), "refund_swap <peer_partial_sig> <tx_prefix_hash> - Cooperative refund of Musig2 escrow");
-  // Hidden — only surfaced inside the elder_council panel. Direct use requires knowing it exists.
-  m_consoleHandler.setHandler("propose_slash", boost::bind(&simple_wallet::propose_slash, this, boost::arg<1>()), "");
-  m_consoleHandler.setHandler("get_report", boost::bind(&simple_wallet::get_report, this, boost::arg<1>()), "");
+  m_consoleHandler.setHandler("swap", boost::bind(&simple_wallet::swap_tui, this, boost::arg<1>()), "swap - Launch swapxfg cross-chain swap terminal");
 
   // NOTE: create_cold_secret and gen_proof might be better off as INTERNAL commands
   // Users should NOT manually create commitments (auto-embedded in tx_extra)
@@ -567,12 +562,9 @@ simple_wallet::simple_wallet(System::Dispatcher& dispatcher, const CryptoNote::C
   m_consoleHandler.setHandler("gen_proof", boost::bind(&simple_wallet::gen_proof, this, boost::arg<1>()), "gen_proof <tx_hash> - Data needed to generate STARK proof for deposit transaction (for L2 claims)");
 
   // @ Alias system commands
-  m_consoleHandler.setHandler("register_alias", boost::bind(&simple_wallet::register_alias, this, boost::arg<1>()), "register_alias <alias> - Register an @ alias (8 chars [a-z0-9&], costs 1 XFG). EFier aliases [A-Z0-9&] via elderking_ceremony.");
+  m_consoleHandler.setHandler("register_alias", boost::bind(&simple_wallet::register_alias, this, boost::arg<1>()), "register_alias <alias> - Register an @ alias (8 chars [a-z0-9&], costs 1 XFG).");
   m_consoleHandler.setHandler("lookup_alias", boost::bind(&simple_wallet::lookup_alias, this, boost::arg<1>()), "lookup_alias <alias_or_address> - Look up an @ alias by name or wallet address");
   m_consoleHandler.setHandler("list_aliases", boost::bind(&simple_wallet::list_aliases, this, boost::arg<1>()), "list_aliases - List all registered @ aliases on the network");
-  // Hidden command — empty usage string keeps it out of help output.
-  // Only shows content to registered Elderfiers.
-  m_consoleHandler.setHandler("elder_council", boost::bind(&simple_wallet::elder_council, this, boost::arg<1>()), "");
   m_consoleHandler.setHandler("gen_new_sub", boost::bind(&simple_wallet::gen_new_sub, this, boost::arg<1>()), "gen_new_sub [major] [minor] - Generate a sub-address at index (major, minor). Omit args for auto-increment (0, N).");
   m_consoleHandler.setHandler("list_subs", boost::bind(&simple_wallet::list_subs, this, boost::arg<1>()), "list_subs - List all sub-addresses for this wallet");
 }
@@ -869,6 +861,7 @@ void simple_wallet::handle_command_line(const boost::program_options::variables_
   m_daemon_address = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port = command_line::get_arg(vm, arg_daemon_port);
+  m_wallet_rpc_port = command_line::get_arg(vm, arg_wallet_rpc_port);
 }
 
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password) {
@@ -1373,17 +1366,10 @@ bool simple_wallet::list_cold(const std::vector<std::string> &)
       continue;
     }
 
-    // Skip EFier stakes — those belong in elder_council only
-    uint32_t efTerm = m_currency.isTestnet() ? CryptoNote::parameters::TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING
-                                              : CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING;
-    if (deposit.term == efTerm) {
-      continue;
-    }
-
     // Format amount (interest handled off-chain via L2)
     std::string amount_str = m_currency.formatAmount(deposit.amount);
 
-    // Format term (COLD deposits only — HEAT and EFier already filtered)
+    // Format term (COLD deposits only — HEAT already filtered)
     uint32_t coldMin = m_currency.isTestnet() ? CryptoNote::parameters::TESTNET_COLD_MIN_TERM
                                                : CryptoNote::parameters::COLD_MIN_TERM;
     uint32_t coldMax = m_currency.isTestnet() ? CryptoNote::parameters::TESTNET_COLD_MAX_TERM
@@ -1503,7 +1489,7 @@ bool simple_wallet::burn(const std::vector<std::string> &args)
     success_msg_writer() << "";
     success_msg_writer() << "Burn XFG Transaction Summary:";
     success_msg_writer() << "  Amount: " << m_currency.formatAmount(burn_amount) << " XFG (PERMANENT)";
-    success_msg_writer() << "  Banking Fee: " << m_currency.formatAmount(banking_fee) << " XFG (0.1% of amount to Elderfiers)";
+    success_msg_writer() << "  Banking Fee: " << m_currency.formatAmount(banking_fee) << " XFG (0.1% of amount)";
     success_msg_writer() << "  Network Fee: " << m_currency.formatAmount(m_currency.minimumFee()) << " XFG (minimum txn fee to miners)";
     success_msg_writer() << "  Commitment Type: 〘HEAT〙 These funds will be BURNED (enabling HEAT minting rights)";
     success_msg_writer() << "";
@@ -1678,7 +1664,7 @@ bool simple_wallet::cold(const std::vector<std::string> &args)
     success_msg_writer() << "Your XFG Certificate Of Ledger Deposit Summary:";
     success_msg_writer() << "  Amount: " << m_currency.formatAmount(cold_amount) << " XFG";
     success_msg_writer() << "  Term: " << term_label << " (" << cold_term << " blocks)";
-    success_msg_writer() << "  Banking Fee: " << m_currency.formatAmount(banking_fee) << " XFG (0.1% of amount to Elderfiers)";
+    success_msg_writer() << "  Banking Fee: " << m_currency.formatAmount(banking_fee) << " XFG (0.1% of amount)";
     success_msg_writer() << "  Network Fee: " << m_currency.formatAmount(m_currency.minimumFee()) << " XFG (minimum txn fee to miners)";
     success_msg_writer() << "  Commitment Type: 【COLD】 ▋ Off-chain (CD) interest yield";
     success_msg_writer() << "";
@@ -1763,33 +1749,9 @@ bool simple_wallet::cold(const std::vector<std::string> &args)
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::elderking_ceremony(const std::vector<std::string> &args)
-{
-  // Interactive Elderfire StayKing Ceremony.
-  // Alias is chosen interactively — no command-line arg needed.
-
-  // ── PRE-CHECK: detect existing ceremony deposits for resume ────────────
-  uint32_t efTerm = CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING;
-  const uint32_t totalDeposits = CryptoNote::parameters::ELDERKING_TOTAL_DEPOSITS;
-  size_t existingStakes = 0;
-  {
-    size_t depCount = m_wallet->getDepositCount();
-    for (CryptoNote::DepositId di = 0; di < depCount; ++di) {
-      CryptoNote::Deposit d;
-      if (!m_wallet->getDeposit(di, d)) continue;
-      if (d.term == efTerm) ++existingStakes;
-    }
-  }
-
-  if (existingStakes >= totalDeposits) {
-    success_msg_writer() << "";
-    success_msg_writer() << "  You already have " << totalDeposits << " Elderfier stakes. Use elder_council.";
-    success_msg_writer() << "";
-    return true;
-  }
-
-  std::string alias;
-  bool resuming = (existingStakes > 0);
+// elderking_ceremony, elder_council, get_report removed (EFier/Elderifier cleanup)
+// ^^^ These functions were deleted as part of Tier 3/4 EFier removal.
+// (body removed)
 
   if (resuming) {
     // ── RESUME FLOW ──────────────────────────────────────────────────────
@@ -2724,15 +2686,6 @@ bool simple_wallet::get_report(const std::vector<std::string> &args)
         success_msg_writer() << "  " << adv;
       }
     }
-
-    success_msg_writer() << "";
-  } catch (const ConnectException&) {
-    printConnectionError();
-  } catch (const std::exception& e) {
-    fail_msg_writer() << "Error: " << e.what();
-  }
-  return true;
-}
 
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::withdraw(const std::vector<std::string> &args)
@@ -3693,6 +3646,112 @@ bool simple_wallet::reset(const std::vector<std::string> &args) {
   }
 
   std::cout << std::endl;
+  return true;
+}
+
+//----------------------------------------------------------------------------------------------------
+// swapxfg TUI launcher
+//----------------------------------------------------------------------------------------------------
+
+#ifndef _WIN32
+#include <unistd.h>
+#include <sys/wait.h>
+#include <climits>
+#include <cerrno>
+#include <cstring>
+#endif
+
+static std::string findSwapxfg() {
+#ifdef _WIN32
+  // Try same directory as current executable
+  char self[MAX_PATH];
+  if (GetModuleFileNameA(nullptr, self, MAX_PATH)) {
+    std::string dir(self);
+    auto pos = dir.rfind('\\');
+    if (pos != std::string::npos) {
+      std::string candidate = dir.substr(0, pos + 1) + "swapxfg.exe";
+      if (GetFileAttributesA(candidate.c_str()) != INVALID_FILE_ATTRIBUTES)
+        return candidate;
+    }
+  }
+  return "";
+#else
+  // 1. Same directory as current executable
+  char self[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", self, sizeof(self) - 1);
+  if (len > 0) {
+    self[len] = '\0';
+    std::string dir(self);
+    dir = dir.substr(0, dir.rfind('/'));
+    std::string candidate = dir + "/swapxfg";
+    if (access(candidate.c_str(), X_OK) == 0) return candidate;
+  }
+  // 2. PATH fallback
+  if (system("which swapxfg > /dev/null 2>&1") == 0)
+    return "swapxfg";
+  return "";
+#endif
+}
+
+void simple_wallet::launchSwapxfg(bool testnet) {
+  std::string swapxfgPath = findSwapxfg();
+  if (swapxfgPath.empty()) {
+    logger(Logging::WARNING) << "swapxfg not found. To use the swap terminal, install swapxfg:";
+    logger(Logging::WARNING) << "  - Download from https://github.com/usexfg/fuego/releases";
+    logger(Logging::WARNING) << "  - Place swapxfg in the same directory as fuego-wallet";
+    logger(Logging::INFO)    << "Alternatively, run manually:";
+    logger(Logging::INFO)    << "  swapxfg --wallet http://127.0.0.1:18182 --daemon http://127.0.0.1:" << m_daemon_port;
+    return;
+  }
+
+  std::string daemonEndpoint = "http://" + (m_daemon_host.empty() ? "127.0.0.1" : m_daemon_host)
+                               + ":" + std::to_string(m_daemon_port);
+
+#ifdef _WIN32
+  std::string cmd = "\"" + swapxfgPath + "\" --daemon \"" + daemonEndpoint + "\"";
+  if (m_wallet_rpc_port) {
+    cmd += " --wallet \"http://127.0.0.1:" + std::to_string(m_wallet_rpc_port) + "\"";
+  }
+  if (testnet) cmd += " --testnet";
+  system(cmd.c_str());
+#else
+  pid_t pid = fork();
+  if (pid == 0) {
+    // child
+    if (m_wallet_rpc_port) {
+      std::string walletEndpoint = "http://127.0.0.1:" + std::to_string(m_wallet_rpc_port);
+      if (testnet) {
+        execlp(swapxfgPath.c_str(), "swapxfg",
+               "--wallet", walletEndpoint.c_str(),
+               "--daemon", daemonEndpoint.c_str(),
+               "--testnet", nullptr);
+      } else {
+        execlp(swapxfgPath.c_str(), "swapxfg",
+               "--wallet", walletEndpoint.c_str(),
+               "--daemon", daemonEndpoint.c_str(), nullptr);
+      }
+    } else {
+      if (testnet) {
+        execlp(swapxfgPath.c_str(), "swapxfg",
+               "--daemon", daemonEndpoint.c_str(),
+               "--testnet", nullptr);
+      } else {
+        execlp(swapxfgPath.c_str(), "swapxfg",
+               "--daemon", daemonEndpoint.c_str(), nullptr);
+      }
+    }
+    _exit(1);
+  } else if (pid > 0) {
+    int status;
+    waitpid(pid, &status, 0);
+  } else {
+    logger(Logging::ERROR) << "fork() failed: " << strerror(errno);
+  }
+#endif
+}
+
+bool simple_wallet::swap_tui(const std::vector<std::string>& /*args*/) {
+  launchSwapxfg(false);
   return true;
 }
 

@@ -179,6 +179,7 @@ namespace CryptoNote {
     std::vector<Crypto::Hash> getCommitmentMerkleProof(const Crypto::Hash& commitment) const;
     int64_t getCommitmentLeafIndex(const Crypto::Hash& commitment) const;
     uint64_t getCommitmentHighestBlock() const;
+    std::vector<Crypto::Hash> getCommitmentLeaves() const;
 
     // Direct CommitmentIndex access (for epoch reports, slash queries)
     const CommitmentIndex& getCommitmentIndex() const;

@@ -87,7 +87,7 @@ namespace
 
   // Elderfier signing key: hex secret key produced by elderking_ceremony
   const command_line::arg_descriptor<std::string> arg_elderfier_key = {"elderfier-key", "Secret signing key (hex) for Elderfier merkle root signing. Produced during elderking_ceremony.", ""};
-  const command_line::arg_descriptor<std::string> arg_elderfier_address = {"elderfier-address", "Wallet address for receiving EFier banking fee rewards.", ""};
+  const command_line::arg_descriptor<std::string> arg_elderfier_address = {"elderfier-address", "Wallet address for Elderfier payout.", ""};
   const command_line::arg_descriptor<bool>        arg_restricted_rpc = {"restricted-rpc", "Restrict RPC to view only commands to prevent abuse"};
   const command_line::arg_descriptor<std::string> arg_enable_cors = { "enable-cors", "Adds header 'Access-Control-Allow-Origin' to the daemon's RPC responses. Uses the value as domain. Use * for all", "" };
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", 2}; // info level
@@ -536,7 +536,7 @@ std::unique_ptr<CryptoNote::ElderfierSignatureBroadcaster> initializeElderfierBr
           broadcaster->setPayoutAddress(payoutAddr);
           logger(INFO, BRIGHT_CYAN) << "  Payout address: " << payoutAddr;
         } else {
-          logger(WARNING, BRIGHT_YELLOW) << "No --elderfier-address set. EFier will not receive banking fee rewards.";
+          logger(WARNING, BRIGHT_YELLOW) << "No --elderfier-address set. Elderfier payout address not configured.";
           logger(WARNING, BRIGHT_YELLOW) << "Use: --elderfier-address=<your_wallet_address>";
         }
 

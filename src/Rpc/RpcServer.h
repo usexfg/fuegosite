@@ -108,6 +108,10 @@ private:
 
   bool on_get_deposits(const COMMAND_RPC_GET_DEPOSITS::request& req, COMMAND_RPC_GET_DEPOSITS::response& res);
   bool on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res);
+  // ZK prover data endpoints
+  bool on_get_block_range(const COMMAND_RPC_GET_BLOCK_RANGE::request& req, COMMAND_RPC_GET_BLOCK_RANGE::response& res);
+  bool on_get_commitment_leaves(const COMMAND_RPC_GET_COMMITMENT_LEAVES::request& req, COMMAND_RPC_GET_COMMITMENT_LEAVES::response& res);
+
   // Commitment Index RPC endpoints (Fuego → EVM bridge)
   bool on_get_commitment(const COMMAND_RPC_GET_COMMITMENT::request& req, COMMAND_RPC_GET_COMMITMENT::response& res);
   bool on_get_commitment_stats(const COMMAND_RPC_GET_COMMITMENT_STATS::request& req, COMMAND_RPC_GET_COMMITMENT_STATS::response& res);

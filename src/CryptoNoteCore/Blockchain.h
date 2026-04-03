@@ -101,9 +101,6 @@ namespace CryptoNote {
     uint64_t getFeePoolBalance() const { return m_feePoolBalance; }
     uint64_t getCurrentEpochSwapFees() const { return m_currentEpochSwapFees; }
     uint64_t getTotalCdLocked() const { return m_totalCdLocked; }
-    uint32_t getActiveEfierCount() const { return m_activeEfierCount; }
-    uint64_t getBankingFeeRateBps() const { return static_cast<uint64_t>(m_activeEfierCount) * parameters::BANKING_FEE_PER_ELFIER_BPS; }
-    uint64_t getEfierSwapRewardPerBlock() const { return m_efierSwapRewardPerBlock; }
     uint64_t getTreasuryBalance() const { return m_treasuryBalance; }
     uint8_t getBlockMajorVersionForHeight(uint32_t height) const;
     uint8_t blockMajorVersion;
@@ -152,11 +149,12 @@ namespace CryptoNote {
     Crypto::Hash getCommitmentMerkleRoot() const;
     std::vector<Crypto::Hash> getCommitmentMerkleProof(const Crypto::Hash& commitment) const;
     int64_t getCommitmentLeafIndex(const Crypto::Hash& commitment) const;
+    std::vector<Crypto::Hash> getCommitmentLeaves() const;
     bool getElderfierSigningPubkey(uint8_t efid, Crypto::PublicKey& pubkey_out) const;
     bool getElderfierBySigningPubkey(const Crypto::PublicKey& pubkey, ElderfierRegistration& out) const;
     CommitmentIndex::Height getCommitmentHighestBlock() const;
 
-    // Banking fee computation: scan transactions for HEAT/COLD commitments, 0.1% per active EFier
+    // Banking fee computation (EFier-based rate removed; returns 0 — see Blockchain.cpp TODO)
     static uint64_t computeBankingFeesFromTransactions(const std::vector<Transaction>& txs, uint32_t activeEfierCount);
 
     // Access CommitmentIndex for epoch boundary checks and fee tracking
@@ -318,7 +316,7 @@ namespace CryptoNote {
       uint16_t          outputInTransaction;
       Crypto::PublicKey commitKey;  // cached for ring signature verification
       uint32_t          term;       // lock term in blocks; 0xFFFFFFFF = FOREVER (HEAT burns, never unlocked)
-      bool              isSlashed = false;  // true = forbidden ring member (slashed EFier stake)
+      bool              isSlashed = false;  // true = forbidden ring member (slashed stake)
 
       void serialize(ISerializer& s) {
         s(transactionIndex, "txindex");
@@ -370,15 +368,13 @@ namespace CryptoNote {
     // Cumulative fee pool accounting (lifetime totals, never reset)
     uint64_t m_totalSwapFeesCollected = 0;    // all swap fees ever entering the pool
     uint64_t m_totalCdInterestPaid = 0;       // total interest paid out to CD holders
-    uint64_t m_totalEfierSwapPaid = 0;        // total EFier 10% share distributed via coinbase
     uint64_t m_totalTreasuryAccrued = 0;      // total 10% accumulated to treasury
 
-    // EFier fee state: dynamic banking fee + swap fee share
-    uint32_t m_activeEfierCount = 0;           // active EFiers (snapshot at epoch boundary)
-    uint64_t m_efierSwapRewardPerBlock = 0;    // 10% of last epoch's swap fees / epoch_duration
-    uint64_t m_efierSwapRewardRemaining = 0;   // undistributed EFier swap share (drips to 0 by epoch end)
+    // TODO(v11): m_activeEfierCount is still referenced in Blockchain.cpp (serialization + computeBankingFeesFromTransactions
+    // call sites). Remove m_activeEfierCount and those call sites once the v11 banking-fee governance vote passes.
+    uint32_t m_activeEfierCount = 0;
 
-    // Treasury: 10% of swap fees accumulates for protocol use
+    // Treasury: 20% of swap fees accumulates for protocol use
     uint64_t m_treasuryBalance = 0;
     UpgradeDetector m_upgradeDetectorV2;
     UpgradeDetector m_upgradeDetectorV3;

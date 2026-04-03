@@ -41,5 +41,8 @@ namespace CryptoNote
     bool elderking_ceremony(const std::vector<std::string> &args);
     bool unstake(const std::vector<std::string> &args);
     bool list_burns(const std::vector<std::string> &args);
+
+    // swapxfg launcher override (passes --testnet)
+    bool swap_tui(const std::vector<std::string> &args);
   };
 }

@@ -143,6 +143,10 @@ std::unordered_map<std::string, RpcServer::RpcHandler<RpcServer::HandlerFunction
   { "/get_alias_by_address", { jsonMethod<COMMAND_RPC_GET_ALIAS_BY_ADDRESS>(&RpcServer::on_get_alias_by_address), true } },
   { "/get_all_aliases", { jsonMethod<COMMAND_RPC_GET_ALL_ALIASES>(&RpcServer::on_get_all_aliases), true } },
 
+  // ZK prover data endpoints
+  { "/get_block_range", { jsonMethod<COMMAND_RPC_GET_BLOCK_RANGE>(&RpcServer::on_get_block_range), false } },
+  { "/get_commitment_leaves", { jsonMethod<COMMAND_RPC_GET_COMMITMENT_LEAVES>(&RpcServer::on_get_commitment_leaves), false } },
+
   // Commitment Index endpoints (bridge support)
   { "/get_commitment", { jsonMethod<COMMAND_RPC_GET_COMMITMENT>(&RpcServer::on_get_commitment), true } },
   { "/get_commitment_stats", { jsonMethod<COMMAND_RPC_GET_COMMITMENT_STATS>(&RpcServer::on_get_commitment_stats), true } },
@@ -2485,6 +2489,57 @@ bool RpcServer::on_estimate_cd_yield(const COMMAND_RPC_ESTIMATE_CD_YIELD::reques
 bool RpcServer::on_get_treasury_info(const COMMAND_RPC_GET_TREASURY_INFO::request& req,
                                       COMMAND_RPC_GET_TREASURY_INFO::response& res) {
   res.treasury_balance = m_core.get_blockchain_storage().getTreasuryBalance();
+  res.status = CORE_RPC_STATUS_OK;
+  return true;
+}
+
+bool RpcServer::on_get_block_range(const COMMAND_RPC_GET_BLOCK_RANGE::request& req, COMMAND_RPC_GET_BLOCK_RANGE::response& res) {
+  uint64_t height = m_core.get_current_blockchain_height();
+  if (height == 0) {
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  uint64_t end = std::min(req.end_height, height - 1);
+
+  for (uint64_t h = req.start_height; h <= end; ++h) {
+    Crypto::Hash bHash = m_core.getBlockIdByHeight(static_cast<uint32_t>(h));
+    Block blk;
+    if (!m_core.getBlockByHash(bHash, blk)) {
+      continue;
+    }
+
+    COMMAND_RPC_GET_BLOCK_RANGE::block_entry entry;
+    entry.major_version = blk.majorVersion;
+    entry.minor_version = blk.minorVersion;
+    entry.nonce = blk.nonce;
+    entry.timestamp = blk.timestamp;
+    entry.previous_block_hash = Common::podToHex(blk.previousBlockHash);
+
+    // Include coinbase tx_extra
+    entry.tx_extras.push_back(Common::toHex(blk.baseTransaction.extra.data(), blk.baseTransaction.extra.size()));
+
+    // Include tx_extra for each transaction in the block
+    std::list<Crypto::Hash> missed_txs;
+    std::list<Transaction> txs;
+    m_core.getTransactions(blk.transactionHashes, txs, missed_txs);
+    for (const Transaction& tx : txs) {
+      entry.tx_extras.push_back(Common::toHex(tx.extra.data(), tx.extra.size()));
+    }
+
+    res.blocks.push_back(std::move(entry));
+  }
+
+  res.status = CORE_RPC_STATUS_OK;
+  return true;
+}
+
+bool RpcServer::on_get_commitment_leaves(const COMMAND_RPC_GET_COMMITMENT_LEAVES::request& /*req*/, COMMAND_RPC_GET_COMMITMENT_LEAVES::response& res) {
+  auto leaves = m_core.getCommitmentLeaves();
+  res.leaves.reserve(leaves.size());
+  for (const auto& h : leaves) {
+    res.leaves.push_back(Common::podToHex(h));
+  }
+  res.count = res.leaves.size();
   res.status = CORE_RPC_STATUS_OK;
   return true;
 }

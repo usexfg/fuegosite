@@ -42,6 +42,16 @@ func main() {
 			cfg.NoSplash = true
 		case "--compact":
 			cfg.Compact = true
+		case "--bridge-port":
+			var p int
+			fmt.Sscanf(next(), "%d", &p)
+			cfg.BridgePort = p
+		case "--no-bridge":
+			cfg.NoBridge = true
+		case "--bch-rpc":
+			cfg.BchRPC = next()
+		case "--no-bch":
+			cfg.NoBch = true
 		case "--help", "-h":
 			fmt.Println("swapxfg — Fuego cross-chain adaptor swap terminal")
 			fmt.Println()
@@ -57,6 +67,10 @@ func main() {
 			fmt.Println("  --pair, -p      Starting pair: sol, eth, xmr, bch (default: sol)")
 			fmt.Println("  --no-splash     Skip splash screen")
 			fmt.Println("  --compact       Compact layout for small terminals")
+			fmt.Println("  --bridge-port   Port for MetaMask/Phantom bridge server (default: random)")
+			fmt.Println("  --no-bridge     Disable the browser bridge server")
+			fmt.Println("  --bch-rpc       Electron Cash RPC (default: http://127.0.0.1:7773)")
+			fmt.Println("  --no-bch        Disable BCH / Electron Cash connection")
 			fmt.Println()
 			fmt.Println("  --help, -h      Show this help")
 			os.Exit(0)

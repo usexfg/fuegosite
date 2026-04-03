@@ -455,6 +455,11 @@ Crypto::Hash CommitmentIndex::computeMerkleRoot() const {
   return m_current_merkle_root;
 }
 
+std::vector<Crypto::Hash> CommitmentIndex::getAllLeaves() const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  return m_merkle_leaves;
+}
+
 Crypto::Hash CommitmentIndex::computeMerkleRootInternal() const {
   // Build binary merkle tree from leaves (caller must hold m_mutex)
   if (m_merkle_leaves.empty()) {

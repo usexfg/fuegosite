@@ -6,6 +6,7 @@ const (
 	PairETH uint8 = 1
 	PairXMR uint8 = 2
 	PairBCH uint8 = 3
+	PairCD  uint8 = 99 // not a swap pair — CD/XFG secondary market mode
 )
 
 // ActivePairs lists all supported pairs in display order (SOL first).
@@ -22,6 +23,8 @@ func PairName(pair uint8) string {
 		return "XMR/XFG"
 	case PairBCH:
 		return "BCH/XFG"
+	case PairCD:
+		return "CD/XFG"
 	default:
 		return "?/XFG"
 	}
@@ -54,6 +57,8 @@ func PairFromString(s string) uint8 {
 		return PairXMR
 	case "bch", "BCH":
 		return PairBCH
+	case "cd", "CD":
+		return PairCD
 	default:
 		return 255
 	}
@@ -70,6 +75,8 @@ func HotkeyPair(r rune) uint8 {
 		return PairXMR
 	case '3':
 		return PairBCH
+	case 'c':
+		return PairCD
 	default:
 		return 255
 	}

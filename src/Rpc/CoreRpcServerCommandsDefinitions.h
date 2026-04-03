@@ -2086,4 +2086,63 @@ struct COMMAND_RPC_REFUND_SWAP {
   };
  };
 
+struct COMMAND_RPC_GET_BLOCK_RANGE {
+  struct request {
+    uint64_t start_height;
+    uint64_t end_height;
+
+    void serialize(ISerializer &s) {
+      KV_MEMBER(start_height)
+      KV_MEMBER(end_height)
+    }
+  };
+
+  struct block_entry {
+    // Block header fields
+    uint8_t  major_version;
+    uint8_t  minor_version;
+    uint32_t nonce;
+    uint64_t timestamp;
+    std::string previous_block_hash; // hex string
+
+    // Per-transaction tx_extra bytes (hex encoded)
+    std::vector<std::string> tx_extras;
+
+    void serialize(ISerializer &s) {
+      KV_MEMBER(major_version)
+      KV_MEMBER(minor_version)
+      KV_MEMBER(nonce)
+      KV_MEMBER(timestamp)
+      KV_MEMBER(previous_block_hash)
+      KV_MEMBER(tx_extras)
+    }
+  };
+
+  struct response {
+    std::vector<block_entry> blocks;
+    std::string status;
+
+    void serialize(ISerializer &s) {
+      KV_MEMBER(blocks)
+      KV_MEMBER(status)
+    }
+  };
+};
+
+struct COMMAND_RPC_GET_COMMITMENT_LEAVES {
+  typedef EMPTY_STRUCT request;
+
+  struct response {
+    std::vector<std::string> leaves; // hex-encoded keccak256 commitment hashes
+    uint64_t count;
+    std::string status;
+
+    void serialize(ISerializer &s) {
+      KV_MEMBER(leaves)
+      KV_MEMBER(count)
+      KV_MEMBER(status)
+    }
+  };
+};
+
 }

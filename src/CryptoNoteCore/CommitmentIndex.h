@@ -343,6 +343,8 @@ public:
   Crypto::Hash computeMerkleRoot() const;
   std::vector<Crypto::Hash> getMerkleProof(const Crypto::Hash& commitment) const;
   size_t getLeafIndex(const Crypto::Hash& commitment) const;
+  /// Returns a snapshot of all ordered merkle leaf hashes (for ZK prover /get_commitment_leaves).
+  std::vector<Crypto::Hash> getAllLeaves() const;
   Height highestBlock() const;
   size_t rollbackToHeight(Height h);
 

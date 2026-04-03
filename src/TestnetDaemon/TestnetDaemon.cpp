@@ -68,7 +68,7 @@ namespace
     const command_line::arg_descriptor<bool>        arg_print_genesis_tx = { "print-genesis-tx", "Prints genesis' block tx hex to insert it to config and exits" };
     const command_line::arg_descriptor<bool>        arg_generate_new_genesis = { "generate-new-genesis", "Generates a new genesis block for testnet" };
     const command_line::arg_descriptor<std::string> arg_testifier_key = {"testifier-key", "Secret signing key (hex) for Testifier merkle root signing.", ""};
-    const command_line::arg_descriptor<std::string> arg_testifier_address = {"testifier-address", "Wallet address for receiving EFier banking fee rewards.", ""};
+    const command_line::arg_descriptor<std::string> arg_testifier_address = {"testifier-address", "Wallet address for Testifier payout.", ""};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm, LoggerRef& logger);
@@ -366,7 +366,7 @@ int main(int argc, char* argv[])
               elderfierBroadcaster->setPayoutAddress(payoutAddr);
               logger(INFO, BRIGHT_CYAN) << "  Payout address: " << payoutAddr;
             } else {
-              logger(WARNING, BRIGHT_YELLOW) << "No --testifier-address set. EFier will not receive banking fee rewards.";
+              logger(WARNING, BRIGHT_YELLOW) << "No --testifier-address set. Testifier payout address not configured.";
               logger(WARNING, BRIGHT_YELLOW) << "Use: --testifier-address=<your_wallet_address>";
             }
 

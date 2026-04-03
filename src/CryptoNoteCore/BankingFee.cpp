@@ -17,21 +17,9 @@
 
 namespace CryptoNote {
 
-// Calculate banking fee: 0.1% per active EFier (dynamic rate)
-// With 8 active EFiers: 0.8% total. With 3: 0.3%. With 0: 0%.
-uint64_t Currency::calculateBankingFee(uint64_t depositAmount, uint32_t activeEfierCount) const {
-    if (activeEfierCount == 0) return 0;
-
-    // 0.1% per active EFier = (amount * activeCount * 10) / 10000
-    // Simplified: (amount * activeCount) / 1000
-    uint64_t fee = (depositAmount * activeEfierCount) / 1000;
-
-    // Ensure minimum fee for small deposits (only if there are active EFiers)
-    if (fee == 0 && depositAmount > 0) {
-        fee = m_defaultDustThreshold;  // 0.0001 XFG (1000 atomic)
-    }
-
-    return fee;
+// EFier banking fee removed — banking fee is zero pending v11 governance vote
+uint64_t Currency::calculateBankingFee(uint64_t /*depositAmount*/, uint32_t /*activeEfierCount*/) const {
+    return 0;
 }
 
 } // namespace CryptoNote

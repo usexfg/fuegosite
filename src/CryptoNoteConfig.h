@@ -148,8 +148,8 @@ namespace CryptoNote
 	    const uint32_t TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING = 2;  // 0xEF deposits: term=2 (fast for testing), 10-block review window
         const uint32_t TESTNET_ELDERFIER_STAKING_REVIEW_WINDOW = 10;  // 10 blocks (fast review for testing)
 
-        // Epoch duration for EFier fee distribution
-        const uint64_t EPOCH_DURATION_BLOCKS = 900;              // Mainnet: 900 blocks (5 days at 480s/block)
+        // Epoch duration for XFG_CD terms & fees/interest distribution
+        const uint64_t EPOCH_DURATION_BLOCKS = 900;  // 5 days (180 blks/day)        // Mainnet: 900 blocks (5 days at 480s/block)
         const uint64_t TESTNET_EPOCH_DURATION_BLOCKS = 10;       // Testnet: 10 blocks (fast epochs for testing)
 
         // CD Fee Pool — funded by atomic swap fees, distributed as interest to CD holders
@@ -159,13 +159,10 @@ namespace CryptoNote
         const uint64_t TESTNET_SWAP_FEE_RATE_BPS = 100;        // 1% on testnet (same as mainnet)
         const uint32_t CD_TRANSFER_MIN_REMAINING_TERM = 1;     // minimum term for transferred CD
 
-        // Dynamic banking fee: 0.1% per active EFier (10 BPS each)
-        const uint64_t BANKING_FEE_PER_ELFIER_BPS = 10;      // 0.1% per active EFier
         const uint64_t BANKING_FEE_BPS_DIVISOR = 10000;      // basis point denominator
-        // Swap fee split: 80% CD yield / 10% EFiers / 10% Fuego Treasury
+        // Swap fee split: 80% CD yield / 20% Chain Treasury
         const uint64_t SWAP_FEE_CD_SHARE_PCT = 80;           // 80% of epoch swap fees → CD yield pool
-        const uint64_t SWAP_FEE_EFIER_SHARE_PCT = 10;        // 10% of epoch swap fees → EFier distribution
-        const uint64_t SWAP_FEE_TREASURY_SHARE_PCT = 10;     // 10% of epoch swap fees → Fuego Treasury
+        const uint64_t SWAP_FEE_TREASURY_SHARE_PCT = 20;     // 20% of epoch swap fees → chaintreasury
 
         // MAINNET DEPOSITS
         const uint64_t DEPOSIT_MIN_AMOUNT = AMOUNT_TIER_0;   // 0.8 XFG

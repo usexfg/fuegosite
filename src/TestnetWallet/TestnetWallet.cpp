@@ -79,6 +79,18 @@ namespace CryptoNote
     m_consoleHandler.setHandler("register_alias", boost::bind(&testnet_wallet::register_alias, this, boost::arg<1>()), "register_alias <alias> - Register a TEST alias (8 chars ONLY: [A-Z0-9] (CAPS-LOCK) req'd for Elderfiers, [a-z0-9] (lowercase) req'd for regular user wallets)");
     m_consoleHandler.setHandler("lookup_alias", boost::bind(&testnet_wallet::lookup_alias, this, boost::arg<1>()), "lookup_alias <alias_or_address> - Look up a TEST alias by name or wallet address");
     m_consoleHandler.setHandler("list_aliases", boost::bind(&testnet_wallet::list_aliases, this, boost::arg<1>()), "list_aliases - List all registered TEST aliases on the network");
+
+    // Override swap command to pass --testnet flag to swapxfg
+    m_consoleHandler.setHandler("swap", boost::bind(&testnet_wallet::swap_tui, this, boost::arg<1>()), "swap - Launch swapxfg testnet swap terminal");
+  }
+
+  //----------------------------------------------------------------------------------------------------
+  // Testnet-specific command implementations
+  //----------------------------------------------------------------------------------------------------
+
+  bool CryptoNote::testnet_wallet::swap_tui(const std::vector<std::string>& /*args*/) {
+    launchSwapxfg(true);
+    return true;
   }
 
   //----------------------------------------------------------------------------------------------------

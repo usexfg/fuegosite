@@ -339,7 +339,7 @@ namespace CryptoNote
       uint64_t mixIn)
   {
 
-    // Skip term range validation for special terms (FOREVER burns and EFier staking)
+    // Skip term range validation for special terms (FOREVER burns and special staking terms)
     bool isSpecialTerm = (term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER ||
                           term == CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING ||
                           term == CryptoNote::parameters::TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING);
@@ -682,7 +682,7 @@ namespace CryptoNote
       const uint32_t commitOutputIndex = static_cast<uint32_t>(transaction->getOutputCount());
       std::array<uint8_t, 32> depositSecret;
 
-      // All deposit types (COLD, HEAT/burn, Elderfier) use deterministic ECDH derivation.
+      // All deposit types (COLD, HEAT/burn, special staking) use deterministic ECDH derivation.
       // depositSecret = H(ECDH(txSecretKey, viewPubKey) || outputIndex_LE32)
       // This makes every commitment output re-detectable on wallet rescan using the view key.
       // HEAT burns are "permanent" because term=FOREVER has no withdrawal path in the UI,

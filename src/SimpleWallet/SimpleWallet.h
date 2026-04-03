@@ -138,6 +138,10 @@ namespace CryptoNote
     bool complete_swap(const std::vector<std::string> &args);
     bool refund_swap(const std::vector<std::string> &args);
 
+    // swapxfg TUI launcher
+    bool swap_tui(const std::vector<std::string> &args);
+    void launchSwapxfg(bool testnet = false);
+
      bool create_cold_secret(const std::vector<std::string> &args);
 
     // USER-FACING: Proof generation from deposits
@@ -223,6 +227,9 @@ namespace CryptoNote
     // Track if arguments were explicitly provided (for testnet wallet menu)
     bool m_wallet_file_arg_provided;
     bool m_generate_new_provided;
+
+    // Optional wallet RPC port for swapxfg launcher (0 = not configured)
+    uint16_t m_wallet_rpc_port = 0;
 
     // Sub-address list: (major, minor, addressString)
     // Generated deterministically from master keys; persisted in <wallet>.subaddresses

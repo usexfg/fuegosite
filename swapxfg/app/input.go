@@ -9,7 +9,9 @@ import (
 )
 
 // RenderInputBar draws the bottom command bar with prompt, balance, and connection info.
-func RenderInputBar(cmdBuf string, cursorOn bool, balance string, daemonAddr string, connected bool, width int) string {
+// xfgBal is the formatted XFG balance (empty if unavailable).
+// bchBal is the formatted BCH balance (empty if BCH not connected).
+func RenderInputBar(cmdBuf string, cursorOn bool, xfgBal, bchBal string, daemonAddr string, connected bool, width int) string {
 	// Prompt
 	cursor := " "
 	if cursorOn {
@@ -17,10 +19,13 @@ func RenderInputBar(cmdBuf string, cursorOn bool, balance string, daemonAddr str
 	}
 	prompt := StyleInput.Render(fmt.Sprintf("> %s%s", cmdBuf, cursor))
 
-	// Right side: balance + daemon
+	// Right side: balance(s) + daemon
 	var right []string
-	if balance != "" {
-		right = append(right, StyleBull.Render(fmt.Sprintf("BAL %s XFG", balance)))
+	if xfgBal != "" {
+		right = append(right, StyleBull.Render(fmt.Sprintf("BAL %s XFG", xfgBal)))
+	}
+	if bchBal != "" {
+		right = append(right, StyleBull.Render(bchBal))
 	}
 
 	connStyle := lipgloss.NewStyle().Foreground(ColorConnOK)

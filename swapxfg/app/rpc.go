@@ -177,20 +177,24 @@ func (c *FuegoClient) GetInfo() (*NodeInfo, error) {
 
 // --- Multi-pair parallel fetch ---
 
-// AllPairData holds fetched data for all active pairs.
+// AllPairData holds fetched data for all active pairs + CD market.
 type AllPairData struct {
-	Offers map[uint8][]SwapOffer
-	Prices map[uint8]*SwapPriceResponse
-	Trades map[uint8][]SwapTrade
-	Height uint64
+	Offers   map[uint8][]SwapOffer
+	Prices   map[uint8]*SwapPriceResponse
+	Trades   map[uint8][]SwapTrade
+	Height   uint64
+	CdOffers []CdOffer
+	CdPrices map[uint64]*CdPriceStats // keyed by CD amount tier
 }
 
-// FetchAll fetches offers, prices, and trades for the given pairs in parallel.
+// FetchAll fetches offers, prices, and trades for the given pairs in parallel,
+// plus CD market offers and price stats.
 func (c *FuegoClient) FetchAll(pairs []uint8) (*AllPairData, error) {
 	data := &AllPairData{
-		Offers: make(map[uint8][]SwapOffer),
-		Prices: make(map[uint8]*SwapPriceResponse),
-		Trades: make(map[uint8][]SwapTrade),
+		Offers:   make(map[uint8][]SwapOffer),
+		Prices:   make(map[uint8]*SwapPriceResponse),
+		Trades:   make(map[uint8][]SwapTrade),
+		CdPrices: make(map[uint64]*CdPriceStats),
 	}
 
 	var mu sync.Mutex
@@ -253,6 +257,29 @@ func (c *FuegoClient) FetchAll(pairs []uint8) (*AllPairData, error) {
 			mu.Unlock()
 		}()
 	}
+
+	// Fetch CD market offers
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		offers, err := c.GetCdOffers(0)
+		mu.Lock()
+		if err == nil {
+			data.CdOffers = offers
+			// Fetch price stats for each distinct CD amount tier
+			seen := make(map[uint64]bool)
+			for _, o := range offers {
+				if seen[o.CdAmount] {
+					continue
+				}
+				seen[o.CdAmount] = true
+				if ps, err2 := c.GetCdPrice(o.CdAmount); err2 == nil {
+					data.CdPrices[o.CdAmount] = ps
+				}
+			}
+		}
+		mu.Unlock()
+	}()
 
 	wg.Wait()
 	return data, firstErr

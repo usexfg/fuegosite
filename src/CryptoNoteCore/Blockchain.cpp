@@ -215,12 +215,12 @@ public:
       s(m_bs.m_currentEpochSwapFees, "current_epoch_swap_fees");
       s(m_bs.m_totalCdLocked, "total_cd_locked");
       s(m_bs.m_activeEfierCount, "active_efier_count");
-      s(m_bs.m_efierSwapRewardPerBlock, "efier_swap_reward_per_block");
-      s(m_bs.m_efierSwapRewardRemaining, "efier_swap_reward_remaining");
+     // s(m_bs.m_efierSwapRewardPerBlock, "efier_swap_reward_per_block");
+    //  s(m_bs.m_efierSwapRewardRemaining, "efier_swap_reward_remaining");
       s(m_bs.m_treasuryBalance, "treasury_balance");
       s(m_bs.m_totalSwapFeesCollected, "total_swap_fees_collected");
       s(m_bs.m_totalCdInterestPaid, "total_cd_interest_paid");
-      s(m_bs.m_totalEfierSwapPaid, "total_efier_swap_paid");
+     // s(m_bs.m_totalEfierSwapPaid, "total_efier_swap_paid");
       s(m_bs.m_totalTreasuryAccrued, "total_treasury_accrued");
 
     auto dur = std::chrono::steady_clock::now() - start;
@@ -1438,7 +1438,7 @@ bool Blockchain::validate_miner_transaction(const Block& b, uint32_t height, siz
     uint64_t bankingFeesInBlock = computeBankingFeesFromTransactions(blockTransactions, m_activeEfierCount);
 
     // Swap fee share: per-block drip from 20% of last epoch's swap fees (funded from fee pool)
-    uint64_t efierSwapReward = m_efierSwapRewardPerBlock;
+  //  uint64_t efierSwapReward = m_efierSwapRewardPerBlock;
 
     // Total EFier input = banking fees (from miner) + swap reward (from fee pool)
     uint64_t totalEfierInput = bankingFeesInBlock + efierSwapReward;
@@ -2915,10 +2915,10 @@ bool Blockchain::pushBlock(const Block &blockData, const std::vector<Transaction
     }
 
     // Track EFier swap reward drip: decrement remaining, accumulate paid
-    if (m_efierSwapRewardPerBlock > 0 && m_efierSwapRewardRemaining >= m_efierSwapRewardPerBlock) {
-      m_efierSwapRewardRemaining -= m_efierSwapRewardPerBlock;
-      m_totalEfierSwapPaid += m_efierSwapRewardPerBlock;
-    }
+  //  if (m_efierSwapRewardPerBlock > 0 && m_efierSwapRewardRemaining >= m_efierSwapRewardPerBlock) {
+  //    m_efierSwapRewardRemaining -= m_efierSwapRewardPerBlock;
+  //    m_totalEfierSwapPaid += m_efierSwapRewardPerBlock;
+  //  }
   }
 
   auto block_processing_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - blockProcessingStart).count();
@@ -3025,6 +3025,11 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
   CommitmentIndex::Height Blockchain::getCommitmentHighestBlock() const {
     std::lock_guard<decltype(m_blockchain_lock)> lk(m_blockchain_lock);
     return m_commitmentIndex.highestBlock();
+  }
+
+  std::vector<Crypto::Hash> Blockchain::getCommitmentLeaves() const {
+    std::lock_guard<decltype(m_blockchain_lock)> lk(m_blockchain_lock);
+    return m_commitmentIndex.getAllLeaves();
   }
 
   uint64_t Blockchain::computeBankingFeesFromTransactions(const std::vector<Transaction>& txs, uint32_t activeEfierCount) {
@@ -3473,12 +3478,12 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     uint64_t epochNumber = newHeight / epochDuration;
     uint64_t epochStart = (epochNumber - 1) * epochDuration;
     uint64_t epochEnd = epochStart + epochDuration - 1;
-    // Split swap fees: 80% CD yield / 10% EFiers / 10% Treasury
+    // Split swap fees: 80% CD yield / 20% Treasury
     uint64_t epochSwapFees = m_currentEpochSwapFees;
     uint64_t epochCdLocked = m_totalCdLocked;
-    uint64_t efierSwapShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_EFIER_SHARE_PCT) / 100;
+   // uint64_t efierSwapShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_EFIER_SHARE_PCT) / 100;
     uint64_t treasuryShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_TREASURY_SHARE_PCT) / 100;
-    uint64_t cdSwapShare = epochSwapFees - efierSwapShare - treasuryShare;
+    uint64_t cdSwapShare = epochSwapFees - treasuryShare;
 
     // Compute fee rate for this epoch on CD's 80% share only
     uint64_t epochFeeRate = 0;
@@ -3490,17 +3495,11 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     // Cumulative accounting: track lifetime swap fees entering the pool
     m_totalSwapFeesCollected += epochSwapFees;
 
-    // Deduct EFier + Treasury share from fee pool and spread EFier across next epoch
-    uint64_t totalNonCdShare = efierSwapShare + treasuryShare;
-    if (totalNonCdShare > 0 && m_feePoolBalance >= totalNonCdShare) {
-      m_feePoolBalance -= totalNonCdShare;
-      m_efierSwapRewardPerBlock = efierSwapShare / epochDuration;
-      m_efierSwapRewardRemaining = efierSwapShare;  // drips to 0 over next epoch
+    // Deduct treasury share from fee pool; remainder stays as CD yield
+    if (treasuryShare > 0 && m_feePoolBalance >= treasuryShare) {
+      m_feePoolBalance -= treasuryShare;
       m_treasuryBalance += treasuryShare;
       m_totalTreasuryAccrued += treasuryShare;
-    } else {
-      m_efierSwapRewardPerBlock = 0;
-      m_efierSwapRewardRemaining = 0;
     }
 
     // Reset epoch accumulator for next epoch
@@ -3509,9 +3508,6 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     EpochReport report = m_commitmentIndex.generateEpochReport(
         epochNumber, epochStart, epochEnd, newHeight);
 
-    // Snapshot active EFier count for next epoch's banking fee calculation
-    m_activeEfierCount = report.activeEfierCount;
-
     // Fill in fee pool fields
     report.swapFeesCollected = epochSwapFees;
     report.totalCdLockedAtStart = epochCdLocked;
@@ -3519,23 +3515,12 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     m_commitmentIndex.storeEpochReport(report);
     logger(INFO) << "=== Epoch " << epochNumber << " Report ==="
                  << " blocks=" << epochStart << "-" << epochEnd
-                 << " active=" << report.activeEfierCount
-                 << " signed=" << report.participatingEfierCount
-                 << " missing=" << report.missingEfierIds.size()
-                 << " double_signs=" << report.doubleSignEvents.size()
-                 << " recommendations=" << report.slash_advisory.size()
                  << " swapFees=" << epochSwapFees
                  << " cdShare=" << cdSwapShare
-                 << " efierShare=" << efierSwapShare
                  << " treasuryShare=" << treasuryShare
-                 << " efierSwapPerBlk=" << m_efierSwapRewardPerBlock
                  << " treasuryBal=" << m_treasuryBalance
                  << " cdLocked=" << epochCdLocked
-                 << " feeRate=" << epochFeeRate
-                 << " activeEFs=" << m_activeEfierCount;
-    for (auto& rec : report.slash_advisory) {
-      logger(WARNING) << "elder_council ADVISORY (use `propose_slash` to act): " << rec;
-    }
+                 << " feeRate=" << epochFeeRate;
   }
 
   return true;

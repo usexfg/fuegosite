@@ -1381,6 +1381,10 @@ uint64_t core::getCommitmentHighestBlock() const {
   return m_blockchain.getCommitmentHighestBlock();
 }
 
+std::vector<Crypto::Hash> core::getCommitmentLeaves() const {
+  return m_blockchain.getCommitmentLeaves();
+}
+
 // Elderfier consensus accessors - delegate to Blockchain
 std::vector<uint8_t> core::getCommitmentSignedElderfierIds() const {
   return m_blockchain.getCommitmentSignedElderfierIds();
