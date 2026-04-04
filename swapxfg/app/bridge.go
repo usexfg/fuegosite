@@ -64,8 +64,11 @@ func NewBridgeServer(preferredPort int) (*BridgeServer, error) {
 	b := &BridgeServer{
 		pending: make(map[string]pendingReq),
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		},
+				CheckOrigin: func(r *http.Request) bool {
+					origin := r.Header.Get("Origin")
+					return origin == "http://127.0.0.1" || origin == "http://localhost"
+				},
+			},
 	}
 	b.port = l.Addr().(*net.TCPAddr).Port
 	b.ethHTML = ethBridgeHTML(b.port)
