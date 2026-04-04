@@ -17,7 +17,7 @@ func solBridgeHTML(port int, network string) string {
 <body style="background:#111;color:#eee;font-family:monospace;padding:248">
 <h2 style="color:#FF5500">&#x26B3;&#xFE0F; swapxfg &middot; SOL bridge</h2>
 <p id="status">Connecting to swapxfg&hellip;</p>
-<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js" integrity="sha384-I45YF+S0YGWIolUyTksLk9TNtTqaDgZg8e6T1OoBoJvvFmphqYNIPZw3Kl0TkZNN" crossorigin="anonymous"></script>
 <script>
  const ws = new WebSocket("ws://127.0.0.1:%d/bridge/ws");
  const st = document.getElementById("status");

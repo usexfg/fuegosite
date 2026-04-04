@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 )
@@ -48,6 +49,7 @@ type BridgeServer struct {
 	cancel   context.CancelFunc
 	solNetwork string
 	ethNetwork string
+	rateLimiter *rate.Limiter
 }
 
 // NewBridgeServer creates and starts a BridgeServer bound to a random
@@ -71,6 +73,9 @@ func NewBridgeServer(cfg Config, preferredPort int) (*BridgeServer, error) {
 					return origin == "http://127.0.0.1" || origin == "http://localhost"
 				},
 			},
+		solNetwork: "mainnet",
+		ethNetwork: "mainnet",
+		rateLimiter: rate.NewLimiter(rate.Every(1*time.Second), 10), // Allow 10 requests per second
 	}
 	b.port = l.Addr().(*net.TCPAddr).Port
 
@@ -79,10 +84,22 @@ func NewBridgeServer(cfg Config, preferredPort int) (*BridgeServer, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/bridge/eth", func(w http.ResponseWriter, r *http.Request) {
+		// Apply rate limiting
+		if !b.rateLimiter.Allow() {
+			log.Printf("Bridge.ETH handler: rate limit exceeded for request from %s", r.RemoteAddr)
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, b.ethHTML)
 	})
 	mux.HandleFunc("/bridge/sol", func(w http.ResponseWriter, r *http.Request) {
+		// Apply rate limiting
+		if !b.rateLimiter.Allow() {
+			log.Printf("Bridge.SOL handler: rate limit exceeded for request from %s", r.RemoteAddr)
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, b.solHTML)
 	})
@@ -144,10 +161,15 @@ func (b *BridgeServer) IsConnected() bool {
 // Send sends a request to the browser and waits up to 30 s for a response.
 func (b *BridgeServer) Send(req BridgeRequest) (BridgeResponse, error) {
 	b.mu.Lock()
+	// Apply rate limiting
+	if !b.rateLimiter.Allow() {
+		b.mu.Unlock()
+		return BridgeResponse{}, fmt.Errorf("rate limit exceeded")
+	}
+
 	conn := b.conn
 	if conn == nil {
 		b.mu.Unlock()
-		log.Printf("Bridge.Send: no browser connected, request=%s", req.Action)
 		return BridgeResponse{}, fmt.Errorf("no browser connected")
 	}
 
@@ -187,6 +209,13 @@ func openURL(url string) error {
 // handleWS upgrades the HTTP connection to a WebSocket and reads responses.
 func (b *BridgeServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Bridge.handleWS: new WebSocket connection attempt from %s", r.RemoteAddr)
+	// Apply rate limiting for new connections
+	if !b.rateLimiter.Allow() {
+		log.Printf("Bridge.handleWS: rate limit exceeded for connection from %s", r.RemoteAddr)
+		http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+
 	conn, err := b.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Bridge.handleWS: upgrade error from %s: %v", r.RemoteAddr, err)
@@ -213,6 +242,12 @@ func (b *BridgeServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
+		// Apply rate limiting for incoming messages
+		if !b.rateLimiter.Allow() {
+			log.Printf("Bridge.handleWS: rate limit exceeded for messages from %s", r.RemoteAddr)
+			return
+		}
+
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("Bridge.handleWS: read error from %s: %v", r.RemoteAddr, err)
