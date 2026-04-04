@@ -45,6 +45,7 @@ type bchRpcResponse struct {
 }
 
 func (c *BchClient) call(method string, params []interface{}, result interface{}) error {
+	log.Printf("BchClient.call: sending RPC request to %s, method=%s", c.endpoint, method)
 	id := atomic.AddUint64(&c.idSeq, 1)
 	reqBody, _ := json.Marshal(bchRpcRequest{
 		Jsonrpc: "1.0",
@@ -74,7 +75,12 @@ func (c *BchClient) call(method string, params []interface{}, result interface{}
 	if result == nil {
 		return nil
 	}
-	return json.Unmarshal(rpcResp.Result, result)
+	err := json.Unmarshal(rpcResp.Result, result)
+	if err != nil {
+		log.Printf("BchClient.call: unmarshal error for method %s: %v", method, err)
+	}
+	log.Printf("BchClient.call: RPC request completed, method=%s", method)
+	return err
 }
 
 // BchBalance holds confirmed and unconfirmed balances in satoshis.
@@ -85,6 +91,7 @@ type BchBalance struct {
 
 // GetBalance returns the wallet's BCH balance in satoshis.
 func (c *BchClient) GetBalance() (*BchBalance, error) {
+	log.Println("BchClient.GetBalance: requesting BCH balance")
 	// Electron Cash returns {"confirmed": "0.05", "unconfirmed": "0.00"} as BCH strings.
 	var result struct {
 		Confirmed   json.RawMessage `json:"confirmed"`
@@ -118,6 +125,7 @@ func (c *BchClient) GetBalance() (*BchBalance, error) {
 
 // GetNewAddress returns a fresh BCH P2PKH address from the wallet.
 func (c *BchClient) GetNewAddress() (string, error) {
+	log.Println("BchClient.GetNewAddress: requesting new BCH address")
 	var addr string
 	return addr, c.call("getnewaddress", nil, &addr)
 }
@@ -125,12 +133,14 @@ func (c *BchClient) GetNewAddress() (string, error) {
 // PayTo creates a signed BCH transaction paying addr the given amount (in BCH, e.g. "0.01").
 // Returns the raw transaction hex. Does not broadcast.
 func (c *BchClient) PayTo(addr, amountBCH string) (string, error) {
+	log.Printf("BchClient.PayTo: creating transaction to %s for %s BCH", addr, amountBCH)
 	var txHex string
 	return txHex, c.call("payto", []interface{}{addr, amountBCH}, &txHex)
 }
 
 // BroadcastTx broadcasts a raw hex transaction. Returns the txid.
 func (c *BchClient) BroadcastTx(rawHex string) (string, error) {
+	log.Println("BchClient.BroadcastTx: broadcasting transaction")
 	var txid string
 	return txid, c.call("broadcast", []interface{}{rawHex}, &txid)
 }
@@ -144,24 +154,28 @@ type BchUtxo struct {
 }
 
 func (c *BchClient) GetAddressUnspent(addr string) ([]BchUtxo, error) {
+	log.Printf("BchClient.GetAddressUnspent: requesting UTXOs for address %s", addr)
 	var utxos []BchUtxo
 	return utxos, c.call("getaddressunspent", []interface{}{addr}, &utxos)
 }
 
 // GetRawTransaction fetches a raw transaction hex by txid.
 func (c *BchClient) GetRawTransaction(txid string) (string, error) {
+	log.Printf("BchClient.GetRawTransaction: requesting transaction %s", txid)
 	var raw string
 	return raw, c.call("gettransaction", []interface{}{txid, false}, &raw)
 }
 
 // GetBlockCount returns the current BCH chain height.
 func (c *BchClient) GetBlockCount() (int, error) {
+	log.Println("BchClient.GetBlockCount: requesting current block height")
 	var height int
 	return height, c.call("getblockcount", nil, &height)
 }
 
 // IsConnected pings Electron Cash via getblockcount. Returns false on error.
 func (c *BchClient) IsConnected() bool {
+	log.Println("BchClient.IsConnected: checking connection status")
 	_, err := c.GetBlockCount()
 	return err == nil
 }
