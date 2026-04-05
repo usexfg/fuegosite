@@ -31,15 +31,13 @@ namespace CryptoNote
 
   protected:
     // Testnet-specific deposit command overrides
-    // These add burn, cold, and elderking_ceremony support to testnet
+    // These add burn and cold support to testnet
     void register_testnet_commands();
 
   private:
     // Testnet deposit implementations
     bool burn(const std::vector<std::string> &args);
     bool cold(const std::vector<std::string> &args);
-    bool elderking_ceremony(const std::vector<std::string> &args);
-    bool unstake(const std::vector<std::string> &args);
     bool list_burns(const std::vector<std::string> &args);
 
     // swapxfg launcher override (passes --testnet)

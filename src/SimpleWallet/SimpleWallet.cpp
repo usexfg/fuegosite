@@ -1969,10 +1969,6 @@ bool simple_wallet::cold_info(const std::vector<std::string> &args)
         depositType = "COLD Yield (0xCD)";
         typeDescription = "Off-chain (CD) interest deposit - locked for your specified term";
         break;
-      case CryptoNote::Deposit::Type::ELDERFIER:
-        depositType = "Legacy Staking (0xEF)";
-        typeDescription = "Legacy staking deposit";
-        break;
       default:
         depositType = "Unknown";
         typeDescription = "Unknown deposit type";
@@ -1981,8 +1977,6 @@ bool simple_wallet::cold_info(const std::vector<std::string> &args)
     // Display term (user-defined unlock time, independent of deposit type)
     if (deposit.term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER) {
       success_msg_writer() << "Term:          FOREVER";
-    } else if (deposit.term == CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING) {
-      success_msg_writer() << "Term:          Legacy staking term";
     } else if (deposit.term == CryptoNote::parameters::COLD_MIN_TERM) {
       success_msg_writer() << "Term:          3 months (16,000 blocks)";
     } else if (deposit.term == CryptoNote::parameters::COLD_MAX_TERM) {
@@ -2030,9 +2024,6 @@ bool simple_wallet::cold_info(const std::vector<std::string> &args)
           } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
             const auto& coldCommit = boost::get<TransactionExtraColdCommitment>(field);
             success_msg_writer() << "Commitment:    " << Common::podToHex(coldCommit.commitment);
-          } else if (field.type() == typeid(TransactionExtraElderfierDeposit)) {
-            const auto& elfDeposit = boost::get<TransactionExtraElderfierDeposit>(field);
-            success_msg_writer() << "Commitment:    " << Common::podToHex(elfDeposit.depositHash);
           }
         }
       }
@@ -2230,14 +2221,10 @@ bool simple_wallet::migrate_cold(const std::vector<std::string> &args) {
       return true;
     }
 
-    // Must be a COLD deposit (not HEAT burn or legacy staking)
+    // Must be a COLD deposit (not HEAT burn)
     if (deposit.depositType == CryptoNote::Deposit::Type::HEAT) {
       fail_msg_writer() << "Deposit " << depositId << " is a HEAT burn. Use burn_info to view it.";
       fail_msg_writer() << "HEAT burns already have v3 commitments if created after the v3 upgrade.";
-      return true;
-    }
-    if (deposit.depositType == CryptoNote::Deposit::Type::ELDERFIER) {
-      fail_msg_writer() << "Deposit " << depositId << " is a legacy staking deposit. Migration not applicable.";
       return true;
     }
 
@@ -3773,7 +3760,7 @@ bool simple_wallet::lookup_alias(const std::vector<std::string> &args) {
         success_msg_writer() << "XFG Alias found:";
         success_msg_writer() << "  Alias:    @" << res.alias;
         success_msg_writer() << "  Address:  " << res.address;
-        success_msg_writer() << "  Type:     " << (res.alias_type == 0 ? "Elderfier" : "Regular");
+        success_msg_writer() << "  Type:     " << (res.alias_type == 0 ? "Caps" : "Regular");
         success_msg_writer() << "  Block:    " << res.registered_block;
       } else {
         fail_msg_writer() << "No alias registered for that address.";
@@ -3789,7 +3776,7 @@ bool simple_wallet::lookup_alias(const std::vector<std::string> &args) {
         success_msg_writer() << "XFG Alias found:";
         success_msg_writer() << "  Alias:    @" << res.alias;
         success_msg_writer() << "  Address:  " << res.address;
-        success_msg_writer() << "  Type:     " << (res.alias_type == 0 ? "Elderfier" : "Regular");
+        success_msg_writer() << "  Type:     " << (res.alias_type == 0 ? "Caps" : "Regular");
         success_msg_writer() << "  Block:    " << res.registered_block;
       } else {
         fail_msg_writer() << "Alias @" << query << " not found.";

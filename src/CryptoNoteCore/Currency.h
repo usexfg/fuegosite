@@ -153,8 +153,6 @@ public:
   // Dynamic minimum fee based on block size
   uint64_t dynamicMinimumFee(size_t currentBlockSize, size_t medianBlockSize, uint8_t blockMajorVersion) const;
 
-  // Calculate banking fee: 0.1% per active EFier (dynamic rate)
-  uint64_t calculateBankingFee(uint64_t depositAmount, uint32_t activeEfierCount) const;
 
   uint64_t defaultDustThreshold() const { return m_defaultDustThreshold; }
   uint64_t difficultyTarget_DRGL() const { return m_difficultyTarget_DRGL; }
@@ -267,9 +265,8 @@ public:
 
   bool constructMinerTx(uint8_t blockMajorVersion, uint32_t height, size_t medianSize, uint64_t alreadyGeneratedCoins, size_t currentBlockSize,
                           uint64_t fee, const AccountPublicAddress &minerAddress, Transaction &tx,
-                          const BinaryArray &extraNonce = BinaryArray(), size_t maxOuts = 1, uint64_t burnedCoinsOverride = UINT64_MAX,
-                          uint64_t bankingFeesInBlock = 0,
-                          const std::vector<std::pair<AccountPublicAddress, uint64_t>> &efierRewards = {}) const;
+                           const BinaryArray &extraNonce = BinaryArray(), size_t maxOuts = 1, uint64_t burnedCoinsOverride = UINT64_MAX,
+                           uint64_t bankingFeesInBlock = 0) const;
 
   bool isFusionTransaction(const Transaction &transaction) const;
   bool isFusionTransaction(const Transaction &transaction, size_t size) const;

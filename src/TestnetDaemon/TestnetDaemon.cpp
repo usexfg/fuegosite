@@ -40,7 +40,6 @@
 
 #include "../Logging/ConsoleLogger.h"
 #include "../Logging/LoggerManager.h"
-#include "../CryptoNoteCore/ElderfierSignatureBroadcaster.h"
 #include "../CryptoNoteCore/SwapOfferRelay.h"
 #include "../Common/StringTools.h"
 
@@ -64,11 +63,9 @@ namespace
   const command_line::arg_descriptor<bool>        arg_restricted_rpc = {"restricted-rpc", "Restrict RPC to view only commands to prevent abuse"};
   const command_line::arg_descriptor<std::string> arg_enable_cors = { "enable-cors", "Adds header 'Access-Control-Allow-Origin' to the daemon's RPC responses. Uses the value as domain. Use * for all", "" };
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", 2}; // info level
-  const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
+    const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
     const command_line::arg_descriptor<bool>        arg_print_genesis_tx = { "print-genesis-tx", "Prints genesis' block tx hex to insert it to config and exits" };
     const command_line::arg_descriptor<bool>        arg_generate_new_genesis = { "generate-new-genesis", "Generates a new genesis block for testnet" };
-    const command_line::arg_descriptor<std::string> arg_testifier_key = {"testifier-key", "Secret signing key (hex) for Testifier merkle root signing.", ""};
-    const command_line::arg_descriptor<std::string> arg_testifier_address = {"testifier-address", "Wallet address for Testifier payout.", ""};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm, LoggerRef& logger);
@@ -152,11 +149,9 @@ int main(int argc, char* argv[])
    command_line::add_arg(desc_cmd_sett, arg_enable_cors);
 
    command_line::add_arg(desc_cmd_sett, arg_print_genesis_tx);
-      command_line::add_arg(desc_cmd_sett, arg_generate_new_genesis);
-      command_line::add_arg(desc_cmd_sett, arg_testifier_key);
-      command_line::add_arg(desc_cmd_sett, arg_testifier_address);
+       command_line::add_arg(desc_cmd_sett, arg_generate_new_genesis);
 
-      RpcServerConfig::initOptions(desc_cmd_sett);
+       RpcServerConfig::initOptions(desc_cmd_sett);
    CoreConfig::initOptions(desc_cmd_sett);
    NetNodeConfig::initOptions(desc_cmd_sett);
    MinerConfig::initOptions(desc_cmd_sett);
@@ -341,46 +336,6 @@ int main(int argc, char* argv[])
 
     logger(INFO) << "Core initialized OK";
 
-    // Initialize elderfier broadcaster if --testifier-key provided
-    std::unique_ptr<CryptoNote::ElderfierSignatureBroadcaster> elderfierBroadcaster;
-    {
-      std::string keyHex = command_line::get_arg(vm, arg_testifier_key);
-      if (!keyHex.empty()) {
-        if (keyHex.size() == 64) {
-          Crypto::SecretKey sigSec;
-          Crypto::PublicKey sigPub;
-          if (Common::podFromHex(keyHex, sigSec) && Crypto::secret_key_to_public_key(sigSec, sigPub)) {
-            logger(INFO, BRIGHT_CYAN) << "";
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "  TESTIFIER SIGNING MODE (TESTNET)";
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "  Signing pubkey: " << Common::podToHex(sigPub);
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "";
-            elderfierBroadcaster = std::make_unique<CryptoNote::ElderfierSignatureBroadcaster>(ccore, p2psrv, &p2psrv, logManager);
-            elderfierBroadcaster->setSigningKeys(sigPub, sigSec);
-
-            // Set payout address if provided
-            std::string payoutAddr = command_line::get_arg(vm, arg_testifier_address);
-            if (!payoutAddr.empty()) {
-              elderfierBroadcaster->setPayoutAddress(payoutAddr);
-              logger(INFO, BRIGHT_CYAN) << "  Payout address: " << payoutAddr;
-            } else {
-              logger(WARNING, BRIGHT_YELLOW) << "No --testifier-address set. Testifier payout address not configured.";
-              logger(WARNING, BRIGHT_YELLOW) << "Use: --testifier-address=<your_wallet_address>";
-            }
-
-            elderfierBroadcaster->start();
-            logger(INFO, BRIGHT_GREEN) << "Testifier signature broadcaster started";
-          } else {
-            logger(ERROR, BRIGHT_RED) << "Invalid --testifier-key hex";
-          }
-        } else {
-          logger(ERROR, BRIGHT_RED) << "Invalid --testifier-key: must be 64 hex characters";
-        }
-      }
-    }
-
     // Initialize swap offer relay
     auto swapRelay = std::make_unique<CryptoNote::SwapOfferRelay>(ccore, p2psrv, &p2psrv);
     swapRelay->start();
@@ -440,13 +395,6 @@ int main(int argc, char* argv[])
       logger(INFO) << "Stopping swap offer relay...";
       swapRelay->stop();
       swapRelay.reset();
-    }
-
-    // Stop elderfier signing before teardown
-    if (elderfierBroadcaster) {
-      logger(INFO) << "Stopping TESTIFIER broadcaster...";
-      elderfierBroadcaster->stop();
-      elderfierBroadcaster.reset();
     }
 
     //stop components

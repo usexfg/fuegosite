@@ -298,8 +298,7 @@ namespace CryptoNote
                                                                                                                                                                 m_pendingBalance(0),
                                                                                                                                                                 m_lockedDepositBalance(0),
                                                                                                                                                                 m_unlockedDepositBalance(0),
-                                                                                                                                                                m_transactionSoftLockTime(transactionSoftLockTime),
-                                                                                                                                                                m_eldernodeIndexManager(nullptr)
+                                                                                                                                                                 m_transactionSoftLockTime(transactionSoftLockTime)
   {
     m_upperTransactionSizeLimit = m_currency.transactionMaxSize();
     m_readyEvent.set();
@@ -3687,9 +3686,6 @@ namespace CryptoNote
         } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
           deposit.depositType = Deposit::Type::COLD;
           break;
-        } else if (field.type() == typeid(TransactionExtraElderfierDeposit)) {
-          deposit.depositType = Deposit::Type::ELDERFIER;
-          break;
         }
       }
     } else {
@@ -3728,76 +3724,10 @@ namespace CryptoNote
     m_logger(DEBUGGING, BRIGHT_GREEN) << "New deposit created, id "
                                       << id << ", locking "
                                       << m_currency.formatAmount(deposit.amount) << " ,for a term of "
-                                      << deposit.term << " blocks, at block "
-                                      << deposit.height;
-
-    // Auto-register elderfier deposits to the EldernodeIndex
-    if (info.depositType == Deposit::Type::ELDERFIER && m_eldernodeIndexManager != nullptr) {
-      registerElderfierDeposit(info, id);
-    }
+                                       << deposit.term << " blocks, at block "
+                                       << deposit.height;
 
     return id;
-  }
-
-  // Helper method to register elderfier deposits in the EldernodeIndex
-  void WalletGreen::registerElderfierDeposit(const Deposit &deposit, DepositId depositId) {
-    if (!m_eldernodeIndexManager) {
-      m_logger(WARNING, BRIGHT_YELLOW) << "EldernodeIndexManager not set - elderfier deposit not registered: " << depositId;
-      return;
-    }
-
-    try {
-      // Parse the transaction extra to extract elderfier commitment and public key
-      std::vector<TransactionExtraField> extraFields;
-      std::vector<uint8_t> extraBytes(deposit.extra.begin(), deposit.extra.end());
-
-      if (!parseTransactionExtra(extraBytes, extraFields)) {
-        m_logger(WARNING, BRIGHT_YELLOW) << "Failed to parse transaction extra for elderfier deposit " << depositId;
-        return;
-      }
-
-      // Look for TransactionExtraElderfierDeposit field
-      for (const auto& field : extraFields) {
-        if (field.type() == typeid(TransactionExtraElderfierDeposit)) {
-          const auto& elfDeposit = boost::get<TransactionExtraElderfierDeposit>(field);
-
-          // Create ElderfierDepositData for registration
-          ElderfierDepositData elderfierData;
-          elderfierData.depositHash = elfDeposit.depositHash;
-          elderfierData.depositAmount = deposit.amount;
-          elderfierData.depositTimestamp = std::time(nullptr);
-          elderfierData.lastSeenTimestamp = elderfierData.depositTimestamp;
-          elderfierData.totalUptimeSeconds = 0;
-          elderfierData.selectionMultiplier = 1;  // Start with 1x multiplier
-          elderfierData.elderfierAddress = Common::podToHex(elfDeposit.elderfierCommitment);
-          elderfierData.isActive = true;
-          elderfierData.isSlashable = elfDeposit.isSlashable;
-          elderfierData.isUnlocked = false;
-          elderfierData.isSpent = false;
-          elderfierData.lastSignatureTimestamp = 0;
-          elderfierData.securityWindowEnd = 0;
-          elderfierData.securityWindowDuration = elfDeposit.securityWindow;
-          elderfierData.isInSecurityWindow = true;
-          elderfierData.unstakingRequested = false;
-          elderfierData.unstakingRequestBlock = 0;
-          elderfierData.unstakeClaimableBlock = 0;
-
-          // Register the elderfier deposit
-          if (m_eldernodeIndexManager->addElderfierDeposit(elderfierData)) {
-            m_logger(DEBUGGING, BRIGHT_GREEN) << "Elderfier deposit registered: " << depositId
-                                              << ", amount: " << m_currency.formatAmount(deposit.amount);
-          } else {
-            m_logger(WARNING, BRIGHT_YELLOW) << "Failed to register elderfier deposit in EldernodeIndex: " << depositId;
-          }
-
-          return;  // Found and processed the elderfier deposit
-        }
-      }
-
-      m_logger(WARNING, BRIGHT_YELLOW) << "No TransactionExtraElderfierDeposit field found in deposit " << depositId;
-    } catch (const std::exception &e) {
-      m_logger(ERROR, BRIGHT_RED) << "Error registering elderfier deposit: " << e.what();
-    }
   }
 
   /* Process transactions, this covers both new transactions AND confirmed transactions */
@@ -4971,11 +4901,6 @@ namespace CryptoNote
       result.push_back(pair.second);
     }
     return result;
-  }
-
-  void WalletGreen::setEldernodeIndexManager(IEldernodeIndexManager* eldernodeIndexManager) {
-    m_eldernodeIndexManager = eldernodeIndexManager;
-    m_logger(DEBUGGING, BRIGHT_GREEN) << "EldernodeIndexManager set for wallet elderfier auto-registration";
   }
 
 } //namespace CryptoNote

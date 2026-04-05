@@ -39,7 +39,12 @@ P2pNodeConfig::P2pNodeConfig() :
   expectedOutgoingConnectionsCount(P2P_DEFAULT_CONNECTIONS_COUNT),
   whiteListConnectionsPercent(P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT),
   peerListConnectRange(P2P_DEFAULT_CONNECT_RANGE),
-  peerListGetTryCount(P2P_DEFAULT_PEERLIST_GET_TRY_COUNT) {
+  peerListGetTryCount(P2P_DEFAULT_PEERLIST_GET_TRY_COUNT),
+  meshtasticEnabled(false),
+  meshtasticMqttBroker("mqtt.meshtastic.org:1883"),
+  meshtasticChannel(0),
+  meshtasticChannelName("fuego"),
+  meshtasticEncryptionKey("") {
 }
 
 // getters
