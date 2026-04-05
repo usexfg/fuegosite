@@ -1,6 +1,6 @@
 # Fuego TUI - tview Edition
 
-This is a new Terminal User Interface for Fuego built with the tview library, providing enhanced widgets and multi-step workflows for burn2mint, send transactions, and elderfier dashboard.
+This is a new Terminal User Interface for Fuego built with the tview library, providing enhanced widgets and multi-step workflows for burn2mint and send transactions.
 
 ## Features
 
@@ -14,7 +14,6 @@ This is a new Terminal User Interface for Fuego built with the tview library, pr
 ### Core Functionality
 - **Node Management**: Start/stop Fuego node with status monitoring
 - **Wallet Operations**: Create wallet, get balance, send transactions
-- **Elderfier Dashboard**: Full read/write access with voting and consensus powers
 - **Burn2Mint Flow**: Complete XFG → HEAT minting process with STARK proof generation
 - **Network Switching**: Seamless switching between Mainnet and Testnet
 
@@ -25,24 +24,12 @@ This is a new Terminal User Interface for Fuego built with the tview library, pr
 2. Confirmation dialog before sending
 3. Transaction hash display upon completion
 
-#### Elderfier Dashboard
-- **For Non-Stakers**:
-  - Elderfyre Stayking Process wizard
-  - Stake status checking
-  
-- **For Active Elderfiers**:
-  - Consensus requests viewing
-  - Voting on pending items
-  - Burn2Mint request review
-  - Stake management
-  - ENindex key updates
-
 #### Burn2Mint Process
 1. **Burn Selection**: Choose between small (0.8 XFG) or large (800 XFG) burns
 2. **Confirmation**: Modal dialog to confirm the burn amount
 3. **Transaction Creation**: Creates burn deposit transaction
 4. **Progress Indicator**: Visual progress during confirmation waiting
-5. **Consensus Request**: Requests Elderfier consensus proof
+5. **Consensus Request**: Requests consensus proof
 6. **STARK Generation**: Generates STARK proof using xfg-stark CLI
 7. **Completion**: Shows next steps for L2 submission
 

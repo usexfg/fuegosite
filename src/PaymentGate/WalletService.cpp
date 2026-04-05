@@ -1777,12 +1777,10 @@ namespace PaymentService
 
         /* Now validate the deposit term and the amount */
 
-        /* Check if this is a FOREVER term (burn deposit) or a stake term (0xEF) */
+        /* Check if this is a FOREVER term (burn deposit) */
         bool isForeverTerm = (term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER);
-        bool isStakeTerm = (term == CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING ||
-                            term == CryptoNote::parameters::TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING);
 
-        if (!isForeverTerm && !isStakeTerm) {
+        if (!isForeverTerm) {
           /* For regular deposits, validate term constraints */
 
           /* Use testnet or mainnet term limits */
@@ -1793,9 +1791,7 @@ namespace PaymentService
           /* Deposits should be either min_term, max_term, or a special term */
           bool isValidTerm = (term == min_term ||
                              term == max_term ||
-                             term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER ||
-                             term == CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING ||
-                             term == CryptoNote::parameters::TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING);
+                             term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER);
 
           if (!isValidTerm) {
             return make_error_code(CryptoNote::error::DEPOSIT_WRONG_TERM);

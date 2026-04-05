@@ -132,13 +132,6 @@ std::unordered_map<std::string, RpcServer::RpcHandler<RpcServer::HandlerFunction
   { "/stop_mining", { jsonMethod<COMMAND_RPC_STOP_MINING>(&RpcServer::on_stop_mining), false } },
   { "/stop_daemon", { jsonMethod<COMMAND_RPC_STOP_DAEMON>(&RpcServer::on_stop_daemon), true } },
 
-  // elderfier consensus endpoints
-  { "/elderfier_signatures", { jsonMethod<COMMAND_RPC_GET_ELDERFIER_SIGNATURES>(&RpcServer::on_get_elderfier_signatures), true } },
-  { "/elderfier_consensus_status", { jsonMethod<COMMAND_RPC_GET_ELDERFIER_CONSENSUS_STATUS>(&RpcServer::on_get_elderfier_consensus_status), true } },
-  { "/elderfier_fee_balance", { jsonMethod<COMMAND_RPC_GET_ELDERFIER_FEE_BALANCE>(&RpcServer::on_get_elderfier_fee_balance), true } },
-  { "/elderfier_network_stats", { jsonMethod<COMMAND_RPC_GET_ELDERFIER_NETWORK_STATS>(&RpcServer::on_get_elderfier_network_stats), true } },
-  { "/check_elderfier_eligibility", { jsonMethod<COMMAND_RPC_CHECK_ELDERFIER_ELIGIBILITY>(&RpcServer::on_check_elderfier_eligibility), true } },
-  { "/get_elderfier_by_pubkey", { jsonMethod<COMMAND_RPC_GET_ELDERFIER_BY_PUBKEY>(&RpcServer::on_get_elderfier_by_pubkey), true } },
   { "/get_alias", { jsonMethod<COMMAND_RPC_GET_ALIAS>(&RpcServer::on_get_alias), true } },
   { "/get_alias_by_address", { jsonMethod<COMMAND_RPC_GET_ALIAS_BY_ADDRESS>(&RpcServer::on_get_alias_by_address), true } },
   { "/get_all_aliases", { jsonMethod<COMMAND_RPC_GET_ALL_ALIASES>(&RpcServer::on_get_all_aliases), true } },
@@ -1912,195 +1905,6 @@ bool RpcServer::on_prove_collateral(const COMMAND_RPC_PROVE_COLLATERAL::request&
   return true;
 }
 
-// ============================================================================
-// PHASE 4: ELDERFIER RPC HANDLERS
-// ============================================================================
-
-bool RpcServer::on_get_elderfier_signatures(const COMMAND_RPC_GET_ELDERFIER_SIGNATURES::request& req,
-                                            COMMAND_RPC_GET_ELDERFIER_SIGNATURES::response& res) {
-  try {
-    // Get validated signatures with pubkeys for L2 relay batching
-    auto validated_sigs = m_core.getSignaturesForCurrentRoot();
-    auto pending_ids = m_core.getCommitmentPendingElderfierIds();
-    auto consensus_pct = m_core.getCommitmentConsensusPercentage();
-
-    std::vector<uint8_t> signed_ids;
-
-    for (const auto& vsig : validated_sigs) {
-      COMMAND_RPC_GET_ELDERFIER_SIGNATURES::SignatureInfo sig_info;
-      sig_info.elderfier_id = vsig.elderfier_id;
-      sig_info.signing_pubkey = Common::podToHex(vsig.signing_pubkey);
-      sig_info.signature = Common::podToHex(vsig.signature);
-      sig_info.block_height = vsig.block_height;
-      sig_info.timestamp = vsig.timestamp;
-      sig_info.is_valid = true;
-      res.signatures.push_back(sig_info);
-      signed_ids.push_back(vsig.elderfier_id);
-    }
-
-    res.current_merkle_root = Common::podToHex(m_core.getCommitmentMerkleRoot());
-    res.current_block_height = m_core.get_current_blockchain_height();
-    res.total_registered_elderfiers = validated_sigs.size() + pending_ids.size();
-    res.signatures_received = validated_sigs.size();
-    res.consensus_percentage = static_cast<uint8_t>(consensus_pct);
-    res.threshold_met = consensus_pct >= 69;
-    res.signed_by = signed_ids;
-    res.pending = pending_ids;
-    res.status = CORE_RPC_STATUS_OK;
-
-    return true;
-  } catch (const std::exception& e) {
-    res.status = CORE_RPC_STATUS_BUSY;
-    return true;
-  }
-}
-
-bool RpcServer::on_get_elderfier_consensus_status(const COMMAND_RPC_GET_ELDERFIER_CONSENSUS_STATUS::request& req,
-                                                   COMMAND_RPC_GET_ELDERFIER_CONSENSUS_STATUS::response& res) {
-  try {
-    auto signed_ids = m_core.getCommitmentSignedElderfierIds();
-    auto pending_ids = m_core.getCommitmentPendingElderfierIds();
-    auto consensus_pct = m_core.getCommitmentConsensusPercentage();
-    uint32_t current_height = m_core.get_current_blockchain_height();
-
-    res.current_merkle_root = Common::podToHex(m_core.getCommitmentMerkleRoot());
-    res.current_block_height = current_height;
-    res.total_registered_elderfiers = signed_ids.size() + pending_ids.size();
-    res.elderfiers_signed = signed_ids.size();
-    res.consensus_percentage = static_cast<uint8_t>(consensus_pct);
-    res.signed_by = signed_ids;
-    res.pending = pending_ids;
-    res.meets_69_percent = consensus_pct >= 69;
-    res.ready_for_user_claim = consensus_pct >= 69;
-    // Blocks until next epoch flush (1000-block epochs)
-    res.blocks_until_next_flush = 1000 - (current_height % 1000);
-    res.status = CORE_RPC_STATUS_OK;
-
-    return true;
-  } catch (const std::exception& e) {
-    res.status = CORE_RPC_STATUS_BUSY;
-    return true;
-  }
-}
-
-bool RpcServer::on_get_elderfier_fee_balance(const COMMAND_RPC_GET_ELDERFIER_FEE_BALANCE::request& req,
-                                             COMMAND_RPC_GET_ELDERFIER_FEE_BALANCE::response& res) {
-  try {
-    // Validate that the requested EFiD is within valid range (0-255)
-    // and is registered as an active Elderfier in the current epoch
-    auto signed_ids = m_core.getCommitmentSignedElderfierIds();
-    auto pending_ids = m_core.getCommitmentPendingElderfierIds();
-    bool is_registered = (std::find(signed_ids.begin(), signed_ids.end(), req.elderfier_id) != signed_ids.end()) ||
-                         (std::find(pending_ids.begin(), pending_ids.end(), req.elderfier_id) != pending_ids.end());
-
-    if (!is_registered) {
-      res.elderfier_id = req.elderfier_id;
-      res.accumulated_fees = 0;
-      res.total_fees_earned = 0;
-      res.number_of_rounds_signed = 0;
-      res.status = CORE_RPC_STATUS_OK;
-      return true;
-    }
-
-    // Set elderfier_id in response
-    res.elderfier_id = req.elderfier_id;
-
-    // Per-block fee distribution: no epoch-based earnings tracking.
-    // EFier fees go directly into coinbase outputs each block — tracked on-chain.
-    res.accumulated_fees = 0;
-    res.total_fees_earned = 0;
-    res.number_of_rounds_signed = 0;
-    res.status = CORE_RPC_STATUS_OK;
-
-    return true;
-  } catch (const std::exception& e) {
-    res.status = CORE_RPC_STATUS_OK;  // Still return OK, just with default values
-    res.elderfier_id = req.elderfier_id;
-    res.accumulated_fees = 0;
-    res.total_fees_earned = 0;
-    res.number_of_rounds_signed = 0;
-    return true;
-  }
-}
-
-bool RpcServer::on_get_elderfier_network_stats(const COMMAND_RPC_GET_ELDERFIER_NETWORK_STATS::request& /*req*/,
-                                               COMMAND_RPC_GET_ELDERFIER_NETWORK_STATS::response& res) {
-  try {
-    // Get statistics
-    auto signed_ids = m_core.getCommitmentSignedElderfierIds();
-    auto pending_ids = m_core.getCommitmentPendingElderfierIds();
-    uint32_t current_height = m_core.get_current_blockchain_height();
-
-    // Per-block fee distribution: fees go directly into coinbase each block.
-    res.total_fees_distributed_all_time = 0;
-    res.total_fees_pending_in_escrow = 0;
-    res.total_registered_elderfiers = m_core.getActiveElderfierCount();
-    res.current_block_height = current_height;
-    res.status = CORE_RPC_STATUS_OK;
-
-    return true;
-  } catch (const std::exception& e) {
-    res.status = CORE_RPC_STATUS_OK;  // Still return OK with zero/default values
-    res.total_fees_distributed_all_time = 0;
-    res.total_fees_pending_in_escrow = 0;
-    res.total_registered_elderfiers = 0;
-    res.current_block_height = 0;
-    return true;
-  }
-}
-
-bool RpcServer::on_check_elderfier_eligibility(const COMMAND_RPC_CHECK_ELDERFIER_ELIGIBILITY::request& req,
-                                                COMMAND_RPC_CHECK_ELDERFIER_ELIGIBILITY::response& res) {
-  try {
-    if (req.address.empty()) {
-      res.eligible = false;
-      res.reason = "Address parameter is required";
-      res.status = CORE_RPC_STATUS_OK;
-      return true;
-    }
-
-    bool can_register = m_core.canAddressRegisterElderfier(req.address);
-    res.eligible = can_register;
-
-    if (can_register) {
-      res.reason = "Address is eligible to register as an Elderfier";
-    } else {
-      res.reason = "Address is not eligible (already registered, currently unstaking, or permanently voided)";
-    }
-
-    res.status = CORE_RPC_STATUS_OK;
-    return true;
-  } catch (const std::exception& e) {
-    res.eligible = false;
-    res.reason = "Internal error checking eligibility";
-    res.status = CORE_RPC_STATUS_OK;
-    return true;
-  }
-}
-
-bool RpcServer::on_get_elderfier_by_pubkey(const COMMAND_RPC_GET_ELDERFIER_BY_PUBKEY::request& req,
-                                             COMMAND_RPC_GET_ELDERFIER_BY_PUBKEY::response& res) {
-  res.found = false;
-  if (req.signing_pubkey_hex.size() != 64) return true;
-
-  Crypto::PublicKey pubkey;
-  if (!Common::fromHex(req.signing_pubkey_hex, &pubkey, sizeof(pubkey))) return true;
-
-  ElderfierRegistration reg;
-  if (!m_core.get_blockchain_storage().getElderfierBySigningPubkey(pubkey, reg)) return true;
-
-  res.found = true;
-  res.elderfier_id = reg.elderfier_id;
-  res.ceremony_alias = reg.ceremony_alias;
-
-  switch (reg.status) {
-    case ElderfierStatus::ACTIVE:    res.status = "active"; break;
-    case ElderfierStatus::UNSTAKING: res.status = "unstaking"; break;
-    case ElderfierStatus::VOID:      res.status = "void"; break;
-  }
-  return true;
-}
-
 bool RpcServer::on_get_alias(const COMMAND_RPC_GET_ALIAS::request& req,
                               COMMAND_RPC_GET_ALIAS::response& res) {
   try {
@@ -2237,9 +2041,6 @@ bool RpcServer::on_get_commitment_stats(const COMMAND_RPC_GET_COMMITMENT_STATS::
     res.cold_commitments = m_core.getColdCommitmentCount();
     res.highest_block = static_cast<uint32_t>(m_core.getCommitmentHighestBlock());
     res.merkle_root = Common::podToHex(m_core.getCommitmentMerkleRoot());
-    res.consensus_percentage = m_core.getCommitmentConsensusPercentage();
-    res.signed_elderfier_ids = m_core.getCommitmentSignedElderfierIds();
-    res.pending_elderfier_ids = m_core.getCommitmentPendingElderfierIds();
     res.status = CORE_RPC_STATUS_OK;
     return true;
   } catch (const std::exception& e) {
@@ -2366,36 +2167,7 @@ bool RpcServer::on_get_epoch_report(const COMMAND_RPC_GET_EPOCH_REPORT::request&
     res.epoch_start_block = report->epochStartBlock;
     res.epoch_end_block = report->epochEndBlock;
     res.generated_at_block = report->generatedAtBlock;
-    res.active_efer_count = report->activeEfierCount;
-    res.participating_efer_count = report->participatingEfierCount;
     res.total_fees_distributed = report->totalFeesDistributed;
-    res.signing_efier_ids = report->signingEfierIds;
-    res.missing_efier_ids = report->missingEfierIds;
-    res.slash_advisory = report->slash_advisory;
-
-    for (auto& a : report->efierActivity) {
-      COMMAND_RPC_GET_EPOCH_REPORT::EFierActivityRpc rpc;
-      rpc.elderfier_id = a.elderfier_id;
-      rpc.address = a.address;
-      rpc.ceremony_alias = a.ceremonyAlias;
-      rpc.signed_this_epoch = a.signedThisEpoch;
-      rpc.signatures_submitted = a.signaturesSubmitted;
-      rpc.fees_earned = a.feesEarned;
-      rpc.is_slashed = a.isSlashed;
-      rpc.is_unstaking = a.isUnstaking;
-      rpc.consecutive_missed_epochs = a.consecutiveMissedEpochs;
-      res.efier_activity.push_back(rpc);
-    }
-
-    for (auto& ev : report->doubleSignEvents) {
-      COMMAND_RPC_GET_EPOCH_REPORT::DoubleSignRpc rpc;
-      rpc.elderfier_id = ev.elderfier_id;
-      rpc.root_a = Common::podToHex(ev.root_a);
-      rpc.root_b = Common::podToHex(ev.root_b);
-      rpc.block_height = ev.block_height;
-      rpc.detected_at_block = ev.detected_at_block;
-      res.double_sign_events.push_back(rpc);
-    }
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -2420,8 +2192,6 @@ bool RpcServer::on_get_fee_pool_info(const COMMAND_RPC_GET_FEE_POOL_INFO::reques
   res.current_epoch_swap_fees = m_core.get_blockchain_storage().getCurrentEpochSwapFees();
   res.total_cd_locked = m_core.get_blockchain_storage().getTotalCdLocked();
   res.current_epoch_number = (epochDuration > 0) ? (height / epochDuration) : 0;
-  res.active_efier_count = static_cast<uint64_t>(m_core.getActiveElderfierCount());
-  res.efier_swap_reward_per_block = m_core.get_blockchain_storage().getEfierSwapRewardPerBlock();
   res.status = CORE_RPC_STATUS_OK;
   return true;
 }
@@ -2454,7 +2224,6 @@ bool RpcServer::on_get_epoch_history(const COMMAND_RPC_GET_EPOCH_HISTORY::reques
       summary.total_cd_locked_at_start = report->totalCdLockedAtStart;
       summary.fee_rate_fixed_point = report->feeRateFixedPoint;
       summary.total_fees_distributed = report->totalFeesDistributed;
-      summary.active_efier_count = report->activeEfierCount;
       res.epochs.push_back(summary);
       ++collected;
     }

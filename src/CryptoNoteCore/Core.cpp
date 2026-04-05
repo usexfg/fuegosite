@@ -566,36 +566,21 @@ bool core::get_block_template(Block& b, const AccountPublicAddress& adr, difficu
 
   // V10+: Compute banking fees from block template transactions for coinbase split
   uint64_t bankingFeesInBlock = 0;
-  std::vector<std::pair<AccountPublicAddress, uint64_t>> efierRewards;
   if (b.majorVersion >= BLOCK_MAJOR_VERSION_10) {
     // Fetch transactions from mempool to compute banking fees
     std::vector<Transaction> blockTxs;
     std::vector<Crypto::Hash> missed;
     m_mempool.getTransactions(b.transactionHashes, blockTxs, missed);
-    uint32_t activeEfCount = m_blockchain.getActiveEfierCount();
-    bankingFeesInBlock = Blockchain::computeBankingFeesFromTransactions(blockTxs, activeEfCount);
+    bankingFeesInBlock = Blockchain::computeBankingFeesFromTransactions(blockTxs, 0);
 
-    // Swap fee share: per-block drip from 20% of last epoch's swap fees
-    uint64_t efierSwapReward = m_blockchain.getEfierSwapRewardPerBlock();
-
-    // Total EFier input = banking fees (from miner) + swap reward (from fee pool)
-    uint64_t totalEfierInput = bankingFeesInBlock + efierSwapReward;
-
-    // Per-block EFier distribution: split among active EFiers
-    if (totalEfierInput > 0) {
-      efierRewards = m_blockchain.getCommitmentIndex().computePerBlockEfierRewards(totalEfierInput, b.previousBlockHash);
-    }
-
-    if (bankingFeesInBlock > 0 || !efierRewards.empty()) {
-      logger(DEBUGGING) << "Block template banking fees: " << bankingFeesInBlock
-        << ", swap reward: " << efierSwapReward
-        << ", EFier rewards: " << efierRewards.size() << " outputs";
+    if (bankingFeesInBlock > 0) {
+      logger(DEBUGGING) << "Block template banking fees: " << bankingFeesInBlock;
     }
   }
 
   //make block's coinbase tx look more like real coinbase txs to get truthful blob size
   size_t maxCoinbaseOuts = (b.majorVersion >= BLOCK_MAJOR_VERSION_11) ? 33 : 11;
-  bool r = m_currency.constructMinerTx(b.majorVersion, height, median_size, already_generated_coins, txs_size, fee, adr, b.baseTransaction, ex_nonce, maxCoinbaseOuts, burnedCoins, bankingFeesInBlock, efierRewards);
+  bool r = m_currency.constructMinerTx(b.majorVersion, height, median_size, already_generated_coins, txs_size, fee, adr, b.baseTransaction, ex_nonce, maxCoinbaseOuts, burnedCoins, bankingFeesInBlock);
   if (!r) {
     logger(ERROR, BRIGHT_RED) << "Failed to construct miner tx, first chance";
     return false;
@@ -607,7 +592,7 @@ bool core::get_block_template(Block& b, const AccountPublicAddress& adr, difficu
     logger(TRACE) << "constructMinerTx attempt " << try_count << ": height=" << height << ", majorVersion=" << (int)b.majorVersion
       << ", median_size=" << median_size << ", cumulative_size=" << cumulative_size
       << ", already_generated_coins=" << already_generated_coins << ", fee=" << fee;
-    r = m_currency.constructMinerTx(b.majorVersion, height, median_size, already_generated_coins, cumulative_size, fee, adr, b.baseTransaction, ex_nonce, maxCoinbaseOuts, burnedCoins, bankingFeesInBlock, efierRewards);
+    r = m_currency.constructMinerTx(b.majorVersion, height, median_size, already_generated_coins, cumulative_size, fee, adr, b.baseTransaction, ex_nonce, maxCoinbaseOuts, burnedCoins, bankingFeesInBlock);
 
     if (!(r)) {
       logger(ERROR, BRIGHT_RED) << "Failed to construct miner tx, second chance. height=" << height
@@ -1383,32 +1368,6 @@ uint64_t core::getCommitmentHighestBlock() const {
 
 std::vector<Crypto::Hash> core::getCommitmentLeaves() const {
   return m_blockchain.getCommitmentLeaves();
-}
-
-// Elderfier consensus accessors - delegate to Blockchain
-std::vector<uint8_t> core::getCommitmentSignedElderfierIds() const {
-  return m_blockchain.getCommitmentSignedElderfierIds();
-}
-
-std::vector<uint8_t> core::getCommitmentPendingElderfierIds() const {
-  return m_blockchain.getCommitmentPendingElderfierIds();
-}
-
-uint64_t core::getCommitmentConsensusPercentage() const {
-  return m_blockchain.getCommitmentConsensusPercentage();
-}
-
-std::vector<CommitmentIndex::ElderfierSignatureBundle> core::getSignaturesForCurrentRoot() const {
-  return m_blockchain.getSignaturesForCurrentRoot();
-}
-
-size_t core::getActiveElderfierCount() const {
-  return m_blockchain.getActiveElderfierCount();
-}
-
-// Elderfier registration lifecycle proxy
-bool core::canAddressRegisterElderfier(const std::string& address) const {
-  return m_blockchain.canAddressRegisterElderfier(address);
 }
 
 // @ Alias system proxies

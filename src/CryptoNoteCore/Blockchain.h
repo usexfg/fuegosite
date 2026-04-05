@@ -150,12 +150,7 @@ namespace CryptoNote {
     std::vector<Crypto::Hash> getCommitmentMerkleProof(const Crypto::Hash& commitment) const;
     int64_t getCommitmentLeafIndex(const Crypto::Hash& commitment) const;
     std::vector<Crypto::Hash> getCommitmentLeaves() const;
-    bool getElderfierSigningPubkey(uint8_t efid, Crypto::PublicKey& pubkey_out) const;
-    bool getElderfierBySigningPubkey(const Crypto::PublicKey& pubkey, ElderfierRegistration& out) const;
     CommitmentIndex::Height getCommitmentHighestBlock() const;
-
-    // Banking fee computation (EFier-based rate removed; returns 0 — see Blockchain.cpp TODO)
-    static uint64_t computeBankingFeesFromTransactions(const std::vector<Transaction>& txs, uint32_t activeEfierCount);
 
     // Access CommitmentIndex for epoch boundary checks and fee tracking
     CommitmentIndex& getCommitmentIndex() { return m_commitmentIndex; }
@@ -236,30 +231,11 @@ namespace CryptoNote {
     bool rollbackBlockchainTo(uint32_t height);
     bool have_tx_keyimg_as_spent(const Crypto::KeyImage &key_im);
 
-    // Elderfier consensus accessors
-    std::vector<uint8_t> getCommitmentSignedElderfierIds() const;
-    std::vector<uint8_t> getCommitmentPendingElderfierIds() const;
-    uint64_t getCommitmentConsensusPercentage() const;
-    std::vector<CommitmentIndex::ElderfierSignatureBundle> getSignaturesForCurrentRoot() const;
-
-    // Elderfier fee tracking
-    size_t getActiveElderfierCount() const;
-
-    // Elderfier registration lifecycle
-    bool canAddressRegisterElderfier(const std::string& address) const;
-
     // @ Alias system
     bool aliasExists(const std::string& alias) const;
     std::optional<AliasEntry> getAliasByName(const std::string& alias) const;
     std::optional<AliasEntry> getAliasByAddress(const std::string& address) const;
     std::vector<AliasEntry> getAllAliases() const;
-
-    // Elderfier signature cache accessors
-    void addSignatureToCache(const CachedElderfierSignature& sig);
-    void updateCurrentMerkleRoot(const Crypto::Hash& root);
-    uint64_t getConsensusPercentageForCurrentRoot() const;
-    std::vector<uint8_t> getSignedElderfierIds() const;
-    std::vector<uint8_t> getPendingElderfierIds() const;
 
   private:
 
@@ -370,10 +346,6 @@ namespace CryptoNote {
     uint64_t m_totalCdInterestPaid = 0;       // total interest paid out to CD holders
     uint64_t m_totalTreasuryAccrued = 0;      // total 10% accumulated to treasury
 
-    // TODO(v11): m_activeEfierCount is still referenced in Blockchain.cpp (serialization + computeBankingFeesFromTransactions
-    // call sites). Remove m_activeEfierCount and those call sites once the v11 banking-fee governance vote passes.
-    uint32_t m_activeEfierCount = 0;
-
     // Treasury: 20% of swap fees accumulates for protocol use
     uint64_t m_treasuryBalance = 0;
     UpgradeDetector m_upgradeDetectorV2;
@@ -447,8 +419,6 @@ namespace CryptoNote {
 
     void sendMessage(const BlockchainMessage& message);
 
-    // Elderfier consensus check (called after each block)
-    void checkElderfierConsensusThreshold();
 
     friend class LockedBlockchainStorage;
   };

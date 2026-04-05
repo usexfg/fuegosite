@@ -46,10 +46,6 @@ file(GLOB_RECURSE Optimizer Optimizer/*)
 # Tor integration
 #add_subdirectory(FuegoTor)
 
-# Eldernode services
-add_subdirectory(EldernodeIndexManager)
-add_subdirectory(BurnDepositValidationService)
-
 # System files
 if(MSVC)
   file(GLOB_RECURSE System Platform/Windows/System/* System/*)
