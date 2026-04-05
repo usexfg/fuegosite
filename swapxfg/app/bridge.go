@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
@@ -41,14 +43,14 @@ type BridgeServer struct {
 	solHTML string
 	port    int
 
-	upgrader websocket.Upgrader
-	mu       sync.Mutex
-	pending  map[string]pendingReq
-	conn     *websocket.Conn
-	srv      *http.Server
-	cancel   context.CancelFunc
-	solNetwork string
-	ethNetwork string
+	upgrader    websocket.Upgrader
+	mu          sync.Mutex
+	pending     map[string]pendingReq
+	conn        *websocket.Conn
+	srv         *http.Server
+	cancel      context.CancelFunc
+	solNetwork  string
+	ethNetwork  string
 	rateLimiter *rate.Limiter
 }
 
@@ -68,13 +70,13 @@ func NewBridgeServer(cfg Config, preferredPort int) (*BridgeServer, error) {
 	b := &BridgeServer{
 		pending: make(map[string]pendingReq),
 		upgrader: websocket.Upgrader{
-				CheckOrigin: func(r *http.Request) bool {
-					origin := r.Header.Get("Origin")
-					return origin == "http://127.0.0.1" || origin == "http://localhost"
-				},
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				return origin == "http://127.0.0.1" || origin == "http://localhost"
 			},
-		solNetwork: "mainnet",
-		ethNetwork: "mainnet",
+		},
+		solNetwork:  "mainnet",
+		ethNetwork:  "mainnet",
 		rateLimiter: rate.NewLimiter(rate.Every(1*time.Second), 10), // Allow 10 requests per second
 	}
 	b.port = l.Addr().(*net.TCPAddr).Port

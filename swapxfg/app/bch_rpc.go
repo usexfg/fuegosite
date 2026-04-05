@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -75,7 +76,8 @@ func (c *BchClient) call(method string, params []interface{}, result interface{}
 	if result == nil {
 		return nil
 	}
-	err := json.Unmarshal(rpcResp.Result, result)
+
+	err = json.Unmarshal(rpcResp.Result, result)
 	if err != nil {
 		log.Printf("BchClient.call: unmarshal error for method %s: %v", method, err)
 	}
