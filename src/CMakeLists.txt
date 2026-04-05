@@ -46,6 +46,12 @@ file(GLOB_RECURSE Optimizer Optimizer/*)
 # Tor integration
 #add_subdirectory(FuegoTor)
 
+# Meshtastic integration for offline/off-grid fallback
+add_subdirectory(FuegoMeshtastic)
+
+# Define ENABLE_FUEGOMESH globally for targets that need it
+add_compile_definitions(ENABLE_FUEGOMESH)
+
 # Eldernode services
 add_subdirectory(EldernodeIndexManager)
 add_subdirectory(BurnDepositValidationService)
@@ -362,6 +368,7 @@ target_link_libraries(Daemon PRIVATE
     InProcessNode
     upnpc-static
     BlockchainExplorer
+    FuegoMeshtastic
     ${Boost_LIBRARIES}
     Serialization
     ${JSONCPP_LIBRARIES}

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libSwapDaemonLib.a CMakeFiles/SwapDaemonLib.dir/SwapDaemon/SwapTypes.cpp.o CMakeFiles/SwapDaemonLib.dir/SwapDaemon/SwapStateMachine.cpp.o CMakeFiles/SwapDaemonLib.dir/SwapDaemon/SwapDatabase.cpp.o
-/usr/bin/ranlib libSwapDaemonLib.a

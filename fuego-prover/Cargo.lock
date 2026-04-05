@@ -1877,9 +1877,7 @@ dependencies = [
 name = "fuego-cn"
 version = "0.1.0"
 dependencies = [
- "aes",
  "hex",
- "tiny-keccak",
 ]
 
 [[package]]

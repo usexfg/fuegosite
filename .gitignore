@@ -20,3 +20,6 @@ Thumbs.db
 *.bak
 *.backup
 *.tmp
+
+build/
+build-check/

@@ -8,9 +8,20 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use tiny_keccak::{Hasher, Keccak};
 
-// Replace with the actual built ELF once `fuego-circuit` has been compiled:
-//   include_bytes!("../../fuego-circuit/elf/riscv32im-succinct-zkvm-elf")
-const CIRCUIT_ELF: &[u8] = &[];
+use std::path::PathBuf;
+
+/// Load the circuit ELF binary at runtime.
+/// Looks for CIRCUIT_ELF_PATH env var, falling back to the default build path.
+fn load_circuit_elf() -> Result<Vec<u8>> {
+    let path = std::env::var("CIRCUIT_ELF_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../fuego-circuit/elf/riscv32im-succinct-zkvm-elf")
+        });
+    std::fs::read(&path)
+        .with_context(|| format!("Failed to load circuit ELF from {}", path.display()))
+}
 
 // ---------------------------------------------------------------------------
 // CLI definition
@@ -48,6 +59,10 @@ struct ProveArgs {
     /// Previous checkpoint hash as a 64-char hex string (32 bytes)
     #[arg(long)]
     checkpoint: String,
+
+    /// Difficulty target for PoW verification (e.g. 0x00000FFF)
+    #[arg(long)]
+    difficulty_target: Option<u32>,
 
     /// Output file path for the serialised proof bytes
     #[arg(long)]
@@ -112,8 +127,7 @@ struct MerkleProofResponse {
 /// Decode a hex string (with or without 0x prefix) into a fixed-size byte array.
 fn hex_to_array<const N: usize>(hex: &str) -> Result<[u8; N]> {
     let stripped = hex.strip_prefix("0x").unwrap_or(hex);
-    let bytes = hex::decode(stripped)
-        .with_context(|| format!("invalid hex string: {hex}"))?;
+    let bytes = hex::decode(stripped).with_context(|| format!("invalid hex string: {hex}"))?;
     if bytes.len() != N {
         bail!(
             "expected {} bytes from hex but got {} bytes (input: {})",
@@ -157,6 +171,8 @@ fn fmt_hex(bytes: &[u8]) -> String {
 // ---------------------------------------------------------------------------
 
 fn run_prove(args: ProveArgs) -> Result<()> {
+    let circuit_elf = load_circuit_elf()?;
+
     let client = reqwest::blocking::Client::new();
 
     // 1. Fetch block range from RPC.
@@ -196,8 +212,8 @@ fn run_prove(args: ProveArgs) -> Result<()> {
         .context("failed to decode commitment leaves")?;
 
     // 3. Build ProofPublicValues.
-    let prev_checkpoint_hash: [u8; 32] = hex_to_array::<32>(&args.checkpoint)
-        .context("failed to parse --checkpoint")?;
+    let prev_checkpoint_hash: [u8; 32] =
+        hex_to_array::<32>(&args.checkpoint).context("failed to parse --checkpoint")?;
 
     // Collect new commitment hashes from the fetched blocks.
     let mut new_commitment_hashes: Vec<[u8; 32]> = Vec::new();
@@ -222,7 +238,7 @@ fn run_prove(args: ProveArgs) -> Result<()> {
         new_merkle_root,
         height_start: args.from_height,
         height_end: args.to_height,
-        difficulty_target: 0, // placeholder — real target from chain config
+        difficulty_target: args.difficulty_target.unwrap_or(0),
     };
 
     // 4. Build CircuitWitness.
@@ -239,12 +255,12 @@ fn run_prove(args: ProveArgs) -> Result<()> {
     stdin.write(&witness);
 
     let (_, _report) = prover
-        .execute(CIRCUIT_ELF, &stdin)
+        .execute(&circuit_elf, &stdin)
         .run()
         .context("SP1 circuit execution failed")?;
 
     // Generate the actual proof.
-    let (pk, _vk) = prover.setup(CIRCUIT_ELF);
+    let (pk, _vk) = prover.setup(&circuit_elf);
     let proof = prover
         .prove(&pk, &stdin)
         .run()
@@ -295,8 +311,7 @@ struct ClaimOutput {
 
 fn run_claim(args: ClaimArgs) -> Result<()> {
     // 1. Decode preimage (56 bytes).
-    let preimage_bytes = hex_to_vec(&args.preimage)
-        .context("failed to decode --preimage")?;
+    let preimage_bytes = hex_to_vec(&args.preimage).context("failed to decode --preimage")?;
     if preimage_bytes.len() != 56 {
         bail!(
             "--preimage must be 56 bytes (112 hex chars), got {} bytes",
@@ -309,10 +324,13 @@ fn run_claim(args: ClaimArgs) -> Result<()> {
     let computed_commitment_hex = fmt_hex32(&computed_commitment);
 
     // Cross-check against the provided --commitment flag if non-empty.
-    let provided_commitment_stripped = args.commitment.strip_prefix("0x").unwrap_or(&args.commitment);
+    let provided_commitment_stripped = args
+        .commitment
+        .strip_prefix("0x")
+        .unwrap_or(&args.commitment);
     if !provided_commitment_stripped.is_empty() {
-        let provided_bytes = hex_to_array::<32>(&args.commitment)
-            .context("failed to parse --commitment")?;
+        let provided_bytes =
+            hex_to_array::<32>(&args.commitment).context("failed to parse --commitment")?;
         if computed_commitment != provided_bytes {
             bail!(
                 "computed commitment {} does not match provided --commitment {}",
@@ -365,8 +383,7 @@ fn run_claim(args: ClaimArgs) -> Result<()> {
             .to_string(),
     };
 
-    let json = serde_json::to_string_pretty(&output)
-        .context("failed to serialise claim output")?;
+    let json = serde_json::to_string_pretty(&output).context("failed to serialise claim output")?;
     std::fs::write(&args.out, &json)
         .with_context(|| format!("failed to write claim output to {}", args.out))?;
 

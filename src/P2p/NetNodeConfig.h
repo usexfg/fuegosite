@@ -24,6 +24,10 @@
 #include <boost/program_options.hpp>
 #include "P2pProtocolTypes.h"
 
+#ifdef ENABLE_FUEGOMESH
+#include "FuegoMeshtastic/MeshtasticIntegration.h"
+#endif
+
 namespace CryptoNote {
 
 class NetNodeConfig {
@@ -45,6 +49,14 @@ public:
   bool getHideMyPort() const;
   std::string getConfigFolder() const;
 
+#ifdef ENABLE_FUEGOMESH
+  bool getMeshtasticEnabled() const;
+  std::string getMeshtasticHost() const;
+  uint16_t getMeshtasticPort() const;
+  std::string getMeshtasticDevice() const;
+  MeshtasticConfig getMeshtasticConfig() const;
+#endif
+
   void setP2pStateFilename(const std::string& filename);
   void setTestnet(bool isTestnet);
   void setBindIp(const std::string& ip);
@@ -57,6 +69,10 @@ public:
   void setSeedNodes(const std::vector<NetworkAddress>& addresses);
   void setHideMyPort(bool hide);
   void setConfigFolder(const std::string& folder);
+
+#ifdef ENABLE_FUEGOMESH
+  void setMeshtasticConfig(const MeshtasticConfig& config);
+#endif
 
 private:
   std::string bindIp;
@@ -71,6 +87,14 @@ private:
   std::string configFolder;
   std::string p2pStateFilename;
   bool testnet;
+
+#ifdef ENABLE_FUEGOMESH
+  bool meshtasticEnabled;
+  std::string meshtasticHost;
+  uint16_t meshtasticPort;
+  std::string meshtasticDevice;
+  MeshtasticConfig meshtasticConfig;
+#endif
 };
 
 } //namespace nodetool

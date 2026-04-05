@@ -50,6 +50,10 @@
 #include "CryptoNoteCore/CommitmentIndex.h"
 #include "CryptoNoteCore/Core.h"
 
+#ifdef ENABLE_FUEGOMESH
+#include "FuegoMeshtastic/MeshtasticIntegration.h"
+#endif
+
 using namespace Common;
 using namespace Logging;
 using namespace CryptoNote;
@@ -227,7 +231,15 @@ namespace CryptoNote
     // intervals
     // m_peer_handshake_idle_maker_interval(CryptoNote::P2P_DEFAULT_HANDSHAKE_INTERVAL),
     m_connections_maker_interval(1),
-    m_peerlist_store_interval(60 * 30, false) {
+    m_peerlist_store_interval(60 * 30, false)
+#ifdef ENABLE_FUEGOMESH
+    , m_meshtasticEnabled(false)
+    , m_meshtasticFallbackMode(false)
+#endif
+  {
+#ifdef ENABLE_FUEGOMESH
+    m_meshtastic = std::unique_ptr<MeshtasticIntegration>(new MeshtasticIntegration());
+#endif
   }
 
   void NodeServer::serialize(ISerializer& s) {
@@ -542,6 +554,15 @@ namespace CryptoNote
     std::copy(seedNodes.begin(), seedNodes.end(), std::back_inserter(m_seed_nodes));
 
     m_hide_my_port = config.getHideMyPort();
+
+#ifdef ENABLE_FUEGOMESH
+    if (config.getMeshtasticEnabled()) {
+      if (!initMeshtastic(config.getMeshtasticConfig())) {
+        logger(WARNING) << "Failed to initialize meshtastic, continuing without it";
+      }
+    }
+#endif
+
     return true;
   }
 
@@ -664,6 +685,9 @@ namespace CryptoNote
   //-----------------------------------------------------------------------------------
 
   bool NodeServer::deinit()  {
+#ifdef ENABLE_FUEGOMESH
+    shutdownMeshtastic();
+#endif
     return store_config();
   }
 
@@ -1040,6 +1064,12 @@ namespace CryptoNote
 
         if(++try_count > m_seed_nodes.size()) {
           logger(ERROR) << "Failed to connect to any of seed peers, continuing without seeds";
+#ifdef ENABLE_FUEGOMESH
+          if (m_meshtasticEnabled && !m_meshtasticFallbackMode) {
+            logger(INFO) << "Attempting meshtastic fallback connection...";
+            m_meshtasticFallbackMode = true;
+          }
+#endif
           break;
         }
         if(++current_index >= m_seed_nodes.size())
@@ -1076,6 +1106,20 @@ namespace CryptoNote
           return false;
       }
     }
+
+#ifdef ENABLE_FUEGOMESH
+    if (m_meshtasticEnabled) {
+      conn_count = get_outgoing_connections_count();
+      if (conn_count < m_config.m_net_config.connections_count && m_meshtasticFallbackMode) {
+        logger(INFO) << "TCP connections low (" << conn_count << "/" << m_config.m_net_config.connections_count 
+                     << "), attempting meshtastic relay sync";
+        if (m_meshtastic->isRunning()) {
+          auto peers = m_meshtastic->getPeers();
+          logger(INFO) << "Meshtastic network has " << peers.size() << " peers available";
+        }
+      }
+    }
+#endif
 
     return true;
   }
@@ -1813,4 +1857,93 @@ namespace CryptoNote
       logger(DEBUGGING) << "interrupt() throws unknown exception";
     }
   }
+
+#ifdef ENABLE_FUEGOMESH
+  bool NodeServer::initMeshtastic(const MeshtasticConfig& config) {
+    if (!config.enabled) {
+      logger(INFO) << "Meshtastic integration disabled";
+      return false;
+    }
+
+    if (!m_meshtastic->initialize(config)) {
+      logger(ERROR) << "Failed to initialize meshtastic: " << m_meshtastic->getErrorMessage();
+      return false;
+    }
+
+    if (!m_meshtastic->start()) {
+      logger(ERROR) << "Failed to start meshtastic: " << m_meshtastic->getErrorMessage();
+      return false;
+    }
+
+    m_meshtasticEnabled = true;
+    logger(INFO) << "Meshtastic integration started with node: " << m_meshtastic->getLocalNodeName() 
+                 << " (0x" << std::hex << m_meshtastic->getLocalNodeNum() << std::dec << ")";
+    
+    m_meshtastic->setMessageCallback([this](const MeshtasticMessage& msg) {
+      logger(DEBUGGING) << "Received meshtastic packet from 0x" << std::hex << msg.from << std::dec;
+    });
+
+    return true;
+  }
+
+  void NodeServer::shutdownMeshtastic() {
+    if (m_meshtastic) {
+      m_meshtastic->stop();
+      m_meshtasticEnabled = false;
+      m_meshtasticFallbackMode = false;
+      logger(INFO) << "Meshtastic integration stopped";
+    }
+  }
+
+  bool NodeServer::connectViaMeshtastic(const NetworkAddress& na) {
+    if (!m_meshtasticEnabled || !m_meshtastic->isRunning()) {
+      return false;
+    }
+
+    logger(DEBUGGING) << "Attempting meshtastic connection to " << Common::ipAddressToString(na.ip) << ":" << na.port;
+    return false;
+  }
+
+  void NodeServer::relayBlockViaMeshtastic(const BinaryArray& blockData) {
+    if (m_meshtasticEnabled && m_meshtastic->isRunning()) {
+      logger(DEBUGGING) << "Relaying block via meshtastic (" << blockData.size() << " bytes)";
+      m_meshtastic->broadcastBlock(blockData);
+    }
+  }
+
+  void NodeServer::relayTransactionViaMeshtastic(const BinaryArray& txData) {
+    if (m_meshtasticEnabled && m_meshtastic->isRunning()) {
+      logger(DEBUGGING) << "Relaying transaction via meshtastic (" << txData.size() << " bytes)";
+      m_meshtastic->relayTransaction(txData);
+    }
+  }
+
+  bool NodeServer::relayTransactionViaMesh(const BinaryArray& txBlob) {
+#ifdef ENABLE_FUEGOMESH
+    if (m_meshtasticEnabled && m_meshtastic->isRunning()) {
+      std::vector<uint8_t> data(txBlob.begin(), txBlob.end());
+      return m_meshtastic->relayTransaction(data);
+    }
+#endif
+    return false;
+  }
+
+  bool NodeServer::relayBlockSignalViaMesh(uint32_t height, const Crypto::Hash& blockHash) {
+#ifdef ENABLE_FUEGOMESH
+    if (m_meshtasticEnabled && m_meshtastic->isRunning()) {
+      return m_meshtastic->sendBlockSignal(height, blockHash.data, sizeof(blockHash.data));
+    }
+#endif
+    return false;
+  }
+
+  bool NodeServer::isMeshtasticEnabled() const {
+#ifdef ENABLE_FUEGOMESH
+    return m_meshtasticEnabled && m_meshtastic && m_meshtastic->isRunning();
+#else
+    return false;
+#endif
+  }
+#endif
+
   }

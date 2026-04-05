@@ -185,6 +185,11 @@ namespace CryptoNote
     virtual void for_each_connection(std::function<void(CryptoNote::CryptoNoteConnectionContext&, PeerIdType)> f) override;
     virtual void externalRelayNotifyToAll(int command, const BinaryArray &data_buff, const net_connection_id *excludeConnection) override;
     virtual void externalRelayNotifyToList(int command, const BinaryArray &data_buff, const std::list<boost::uuids::uuid> relayList) override;
+#ifdef ENABLE_FUEGOMESH
+    virtual bool relayTransactionViaMesh(const BinaryArray& txBlob) override;
+    virtual bool relayBlockSignalViaMesh(uint32_t height, const Crypto::Hash& blockHash) override;
+    virtual bool isMeshtasticEnabled() const override;
+#endif
     //-----------------------------------------------------------------------------------------------
     bool add_host_fail(const uint32_t address_ip);
     bool block_host(const uint32_t address_ip, time_t seconds = P2P_IP_BLOCKTIME);
@@ -289,5 +294,16 @@ namespace CryptoNote
     std::map<uint32_t, time_t> m_blocked_hosts;
     std::map<uint32_t, uint64_t> m_host_fails_score;
     mutable std::mutex mutex;
+
+#ifdef ENABLE_FUEGOMESH
+    bool initMeshtastic(const MeshtasticConfig& config);
+    void shutdownMeshtastic();
+    bool connectViaMeshtastic(const NetworkAddress& na);
+    void relayBlockViaMeshtastic(const BinaryArray& blockData);
+    void relayTransactionViaMeshtastic(const BinaryArray& txData);
+    std::unique_ptr<MeshtasticIntegration> m_meshtastic;
+    bool m_meshtasticEnabled;
+    bool m_meshtasticFallbackMode;
+#endif
   };
 }
