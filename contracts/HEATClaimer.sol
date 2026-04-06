@@ -20,8 +20,8 @@ contract HEATClaimer {
 
     // HEAT is pegged 1:1 to XFG atomic units (satoshi-equivalent)
     // Adjust this multiplier if HEAT has a different decimal precision
-    uint256 public constant HEAT_DECIMALS = 18;
-    uint256 public constant XFG_DECIMALS  = 8;
+    uint256 public constant HEAT_DECIMALS = 18; // 0.001 = 1 fwei | 1000 fwei = 1 HEAT
+    uint256 public constant XFG_DECIMALS  = 7;
     uint256 public constant HEAT_PER_XFG_ATOM = 10 ** (HEAT_DECIMALS - XFG_DECIMALS); // 1e10
 
     mapping(bytes32 => bool) public usedNullifiers;
