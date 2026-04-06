@@ -92,7 +92,7 @@ or <code>./fuegod --help</code> when outside of dæmon
 
 ### Terminal User Interface (TUI)
 
-Fuego includes a Go-based Terminal User Interface for easy management of nodes and wallets. The TUI provides full support for Burn2Mint flows, COLD deposits, and wallet management.
+Fuego includes a Go-based Terminal User Interface for easy management of nodes and wallets. The TUI provides full support for Elderfier Staking and Burn2Mint flows.
 
 #### Building the TUI
 
@@ -117,6 +117,7 @@ Navigate with arrow keys or j/k, select with Enter, quit with q or Ctrl+C.
 - Create Wallet
 - Get Balance
 - Send Transaction
+- Elderfier Menu (staking and voting)
 - Burn2Mint Menu (XFG→HEAT conversion)
 
 For detailed documentation, see `tui/README.md`.

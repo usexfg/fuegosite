@@ -51,25 +51,7 @@ func main() {
 		case "--bch-rpc":
 			cfg.BchRPC = next()
 		case "--no-bch":
-		cfg.NoBch = true
-	case "--sol-network":
-		network := next()
-		switch network {
-		case "mainnet", "testnet", "devnet":
-			cfg.SolNetwork = network
-		default:
-			fmt.Fprintf(os.Stderr, "unknown Solana network: %s (use: mainnet, testnet, devnet)\n", network)
-			os.Exit(1)
-		}
-	case "--eth-network":
-		network := next()
-		switch network {
-		case "mainnet", "goerli", "sepolia":
-			cfg.EthNetwork = network
-		default:
-			fmt.Fprintf(os.Stderr, "unknown Ethereum network: %s (use: mainnet, goerli, sepolia)\n", network)
-			os.Exit(1)
-		}
+			cfg.NoBch = true
 		case "--help", "-h":
 			fmt.Println("swapxfg — Fuego cross-chain adaptor swap terminal")
 			fmt.Println()
@@ -80,10 +62,6 @@ func main() {
 			fmt.Println("                  Aliases: --efier, -e")
 			fmt.Println("  --wallet, -w    Wallet RPC endpoint (optional, enables balance + swap signing)")
 		fmt.Println("  --testnet       Use testnet defaults (:28280 daemon, :28282 wallet)")
-			fmt.Println()
-			fmt.Println("Network:")
-			fmt.Println("  --sol-network   Solana network: mainnet, testnet, devnet (default: mainnet)")
-			fmt.Println("  --eth-network   Ethereum network: mainnet, goerli, sepolia (default: mainnet)")
 			fmt.Println()
 			fmt.Println("Display:")
 			fmt.Println("  --pair, -p      Starting pair: sol, eth, xmr, bch (default: sol)")

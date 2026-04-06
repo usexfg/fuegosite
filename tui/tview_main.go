@@ -140,9 +140,12 @@ func buildMainMenu() {
 	list.AddItem("  Burn Info", "Detailed info for a burn by ID", 0, uiBurnInfoForm)
 
 	list.AddItem("[::b]--- COLD Interest Banking ---", "", 0, nil)
-	list.AddItem("  List Deposits", "Show all COLD deposits", 0, cmdListDeposits)
+	list.AddItem("  List Deposits", "Show all COLD/Elderfier deposits", 0, cmdListDeposits)
 	list.AddItem("  Deposit Info", "Detailed info for a deposit by ID", 0, uiDepositInfoForm)
 	list.AddItem("  Withdraw Deposit", "Withdraw a matured deposit", 0, uiWithdrawForm)
+
+	list.AddItem("[::b]--- Ξlderfiers ---", "", 0, nil)
+	list.AddItem("  Elderking Ceremony", "Register as Elderfier (5x 800 deposits)", 'e', cmdElderkingCeremony)
 
 	list.AddItem("[::b]--- @ Aliases ---", "", 0, nil)
 	list.AddItem("  Register Alias", "Register an @ alias", 0, uiRegisterAliasForm)
@@ -472,9 +475,7 @@ func needWallet() bool {
 // ============================================================================
 
 func cmdBalance() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("balance", 2)
 		appState.app.QueueUpdateDraw(func() { msgBox("Balance\n\n" + strings.Join(lines, "\n")) })
@@ -482,9 +483,7 @@ func cmdBalance() {
 }
 
 func cmdAddress() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("address", 1)
 		appState.app.QueueUpdateDraw(func() { msgBox("Wallet Address\n\n" + strings.Join(lines, "\n")) })
@@ -492,9 +491,7 @@ func cmdAddress() {
 }
 
 func cmdBcHeight() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("height", 2)
 		appState.app.QueueUpdateDraw(func() { msgBox("Blockchain Height\n\n" + strings.Join(lines, "\n")) })
@@ -502,9 +499,7 @@ func cmdBcHeight() {
 }
 
 func cmdListTransfers() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("list_transfers", 3)
 		appState.app.QueueUpdateDraw(func() { scrollBox("Transfer History", lines) })
@@ -512,9 +507,7 @@ func cmdListTransfers() {
 }
 
 func cmdListBurns() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("list_burns", 3)
 		appState.app.QueueUpdateDraw(func() { scrollBox("HEAT Burns", lines) })
@@ -522,9 +515,7 @@ func cmdListBurns() {
 }
 
 func cmdListDeposits() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("list_deposits", 3)
 		appState.app.QueueUpdateDraw(func() { scrollBox("COLD Deposits", lines) })
@@ -532,13 +523,30 @@ func cmdListDeposits() {
 }
 
 func cmdListAliases() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	go func() {
 		lines := walletExec("list_aliases", 3)
 		appState.app.QueueUpdateDraw(func() { scrollBox("Registered Aliases", lines) })
 	}()
+}
+
+func cmdElderkingCeremony() {
+	if !needWallet() { return }
+	modal := tview.NewModal().
+		SetText("Elderking Ceremony\n\nThis will create 5x 800 " + CurrentConfig.CoinName + " deposits\n(4000 " + CurrentConfig.CoinName + " total) to register as an Elderfier.\n\nProceed?").
+		AddButtons([]string{"Begin Ceremony", "Cancel"}).
+		SetDoneFunc(func(_ int, label string) {
+			if label == "Begin Ceremony" {
+				go func() {
+					lines := walletExec("elderking_ceremony", 10)
+					appState.app.QueueUpdateDraw(func() { scrollBox("Elderking Ceremony", lines) })
+				}()
+			} else {
+				appState.pages.SwitchToPage("main")
+			}
+		})
+	appState.pages.AddPage("elderkingConfirm", modal, true, true)
+	appState.pages.SwitchToPage("elderkingConfirm")
 }
 
 // ============================================================================
@@ -546,9 +554,7 @@ func cmdListAliases() {
 // ============================================================================
 
 func uiSendForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	addr := tview.NewInputField().SetLabel("Recipient Address").SetFieldWidth(100)
 	amt := tview.NewInputField().SetLabel("Amount (" + CurrentConfig.CoinName + ")").SetFieldWidth(20)
@@ -586,9 +592,7 @@ func uiSendForm() {
 // ============================================================================
 
 func uiBurnMenu() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	list := tview.NewList().
 		SetMainTextColor(tcell.ColorOrange).
 		SetSelectedTextColor(tcell.ColorBlack).
@@ -625,18 +629,13 @@ func uiConfirmBurn(amountStr string) {
 }
 
 func uiGenerateProofForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	txHash := tview.NewInputField().SetLabel("Transaction Hash").SetFieldWidth(70)
 	form.AddFormItem(txHash).
 		AddButton("Generate Proof", func() {
 			hash := txHash.GetText()
-			if hash == "" {
-				msgBox("Enter a transaction hash")
-				return
-			}
+			if hash == "" { msgBox("Enter a transaction hash"); return }
 			go func() {
 				lines := walletExec("gen_proof "+hash, 5)
 				appState.app.QueueUpdateDraw(func() { scrollBox("use xfg-stark-cli for actual STARK Proof", lines) })
@@ -649,18 +648,13 @@ func uiGenerateProofForm() {
 }
 
 func uiBurnInfoForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	burnID := tview.NewInputField().SetLabel("Burn ID").SetFieldWidth(20)
 	form.AddFormItem(burnID).
 		AddButton("Get Info", func() {
 			id := burnID.GetText()
-			if id == "" {
-				msgBox("Enter a burn ID")
-				return
-			}
+			if id == "" { msgBox("Enter a burn ID"); return }
 			go func() {
 				lines := walletExec("burn_info "+id, 3)
 				appState.app.QueueUpdateDraw(func() { scrollBox("Burn Info", lines) })
@@ -677,18 +671,13 @@ func uiBurnInfoForm() {
 // ============================================================================
 
 func uiDepositInfoForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	depID := tview.NewInputField().SetLabel("Deposit ID").SetFieldWidth(20)
 	form.AddFormItem(depID).
 		AddButton("Get Info", func() {
 			id := depID.GetText()
-			if id == "" {
-				msgBox("Enter a deposit ID")
-				return
-			}
+			if id == "" { msgBox("Enter a deposit ID"); return }
 			go func() {
 				lines := walletExec("deposit_info "+id, 3)
 				appState.app.QueueUpdateDraw(func() { scrollBox("Deposit Info", lines) })
@@ -701,18 +690,13 @@ func uiDepositInfoForm() {
 }
 
 func uiWithdrawForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	depID := tview.NewInputField().SetLabel("Deposit ID").SetFieldWidth(20)
 	form.AddFormItem(depID).
 		AddButton("Withdraw", func() {
 			id := depID.GetText()
-			if id == "" {
-				msgBox("Enter a deposit ID")
-				return
-			}
+			if id == "" { msgBox("Enter a deposit ID"); return }
 			go func() {
 				lines := walletExec("withdraw "+id, 5)
 				appState.app.QueueUpdateDraw(func() { msgBox("Withdrawal Result\n\n" + strings.Join(lines, "\n")) })
@@ -729,18 +713,13 @@ func uiWithdrawForm() {
 // ============================================================================
 
 func uiRegisterAliasForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	alias := tview.NewInputField().SetLabel("Alias (8 chars)").SetFieldWidth(20)
 	form.AddFormItem(alias).
 		AddButton("Register", func() {
 			a := alias.GetText()
-			if a == "" {
-				msgBox("Enter an alias")
-				return
-			}
+			if a == "" { msgBox("Enter an alias"); return }
 			go func() {
 				lines := walletExec("register_alias "+a, 5)
 				appState.app.QueueUpdateDraw(func() { msgBox("Register Alias\n\n" + strings.Join(lines, "\n")) })
@@ -753,18 +732,13 @@ func uiRegisterAliasForm() {
 }
 
 func uiLookupAliasForm() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	form := tview.NewForm()
 	query := tview.NewInputField().SetLabel("Alias or Address").SetFieldWidth(100)
 	form.AddFormItem(query).
 		AddButton("Lookup", func() {
 			q := query.GetText()
-			if q == "" {
-				msgBox("Enter an alias or address")
-				return
-			}
+			if q == "" { msgBox("Enter an alias or address"); return }
 			go func() {
 				lines := walletExec("lookup_alias "+q, 3)
 				appState.app.QueueUpdateDraw(func() { msgBox("Alias Lookup\n\n" + strings.Join(lines, "\n")) })
@@ -781,18 +755,14 @@ func uiLookupAliasForm() {
 // ============================================================================
 
 func uiWalletConsole() {
-	if !needWallet() {
-		return
-	}
+	if !needWallet() { return }
 	outputView := tview.NewTextView().SetDynamicColors(true).SetScrollable(true).SetWrap(true)
 	outputView.SetBorder(true).SetTitle(" Wallet Output ").SetTitleAlign(tview.AlignLeft)
 	inputField := tview.NewInputField().SetLabel(CurrentConfig.WalletBinary + "> ").SetFieldWidth(0).SetFieldBackgroundColor(tcell.ColorBlack)
 	inputField.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			cmd := inputField.GetText()
-			if cmd == "" {
-				return
-			}
+			if cmd == "" { return }
 			inputField.SetText("")
 			go func() {
 				lines := walletExec(cmd, 3)
@@ -805,10 +775,7 @@ func uiWalletConsole() {
 	})
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(outputView, 0, 1, false).AddItem(inputField, 1, 0, true)
 	layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc {
-			appState.pages.SwitchToPage("main")
-			return nil
-		}
+		if event.Key() == tcell.KeyEsc { appState.pages.SwitchToPage("main"); return nil }
 		return event
 	})
 	appState.pages.AddPage("console", layout, true, true)
@@ -821,17 +788,12 @@ func uiWalletConsole() {
 
 func uiShowLogs() {
 	logText := strings.Join(appState.logs, "\n")
-	if logText == "" {
-		logText = "No logs yet."
-	}
+	if logText == "" { logText = "No logs yet." }
 	tv := tview.NewTextView().SetText(logText).SetScrollable(true).SetWrap(true)
 	tv.SetBorder(true).SetTitle(" Logs ").SetTitleAlign(tview.AlignLeft)
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(tv, 0, 1, true)
 	layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' {
-			appState.pages.SwitchToPage("main")
-			return nil
-		}
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' { appState.pages.SwitchToPage("main"); return nil }
 		return event
 	})
 	appState.pages.AddPage("logs", layout, true, true)
@@ -852,17 +814,12 @@ func msgBox(message string) {
 
 func scrollBox(title string, lines []string) {
 	text := strings.Join(lines, "\n")
-	if text == "" {
-		text = "(no output)"
-	}
+	if text == "" { text = "(no output)" }
 	tv := tview.NewTextView().SetText(text).SetScrollable(true).SetWrap(true)
 	tv.SetBorder(true).SetTitle(" " + title + " ").SetTitleAlign(tview.AlignLeft)
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(tv, 0, 1, true)
 	layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' {
-			appState.pages.SwitchToPage("main")
-			return nil
-		}
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' { appState.pages.SwitchToPage("main"); return nil }
 		return event
 	})
 	appState.pages.AddPage("scrollOutput", layout, true, true)
@@ -871,9 +828,7 @@ func scrollBox(title string, lines []string) {
 
 func addLog(msg string) {
 	appState.logs = append(appState.logs, msg)
-	if len(appState.logs) > 1000 {
-		appState.logs = appState.logs[len(appState.logs)-1000:]
-	}
+	if len(appState.logs) > 1000 { appState.logs = appState.logs[len(appState.logs)-1000:] }
 }
 
 // ============================================================================
@@ -928,33 +883,21 @@ func fetchNodeInfo() (*NodeInfo, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d/get_info", CurrentConfig.NodeRPCPort)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
+	if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("HTTP %d", resp.StatusCode) }
 	var data map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil { return nil, err }
 	info := &NodeInfo{}
 	if h, ok := data["height"]; ok {
-		if v, ok := h.(float64); ok {
-			info.Height = int(v)
-		}
+		if v, ok := h.(float64); ok { info.Height = int(v) }
 	}
 	peers := 0
 	if ic, ok := data["incoming_connections_count"]; ok {
-		if v, ok := ic.(float64); ok {
-			peers += int(v)
-		}
+		if v, ok := ic.(float64); ok { peers += int(v) }
 	}
 	if oc, ok := data["outgoing_connections_count"]; ok {
-		if v, ok := oc.(float64); ok {
-			peers += int(v)
-		}
+		if v, ok := oc.(float64); ok { peers += int(v) }
 	}
 	info.Peers = peers
 	return info, nil

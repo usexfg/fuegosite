@@ -156,6 +156,7 @@ namespace CryptoNote
     int handle_handshake(int command, COMMAND_HANDSHAKE::request& arg, COMMAND_HANDSHAKE::response& rsp, P2pConnectionContext& context);
     int handle_timed_sync(int command, COMMAND_TIMED_SYNC::request& arg, COMMAND_TIMED_SYNC::response& rsp, P2pConnectionContext& context);
     int handle_ping(int command, COMMAND_PING::request& arg, COMMAND_PING::response& rsp, P2pConnectionContext& context);
+    int handle_elderfier_signature(int command, COMMAND_ELDERFIER_SIGNATURE::request& arg, COMMAND_ELDERFIER_SIGNATURE::response& rsp, P2pConnectionContext& context);
 
 #ifdef ALLOW_DEBUG_COMMANDS
     int handle_get_stat_info(int command, COMMAND_REQUEST_STAT_INFO::request& arg, COMMAND_REQUEST_STAT_INFO::response& rsp, P2pConnectionContext& context);

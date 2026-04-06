@@ -30,6 +30,7 @@
 #include <System/Event.h>
 #include "Transfers/TransfersSynchronizer.h"
 #include "Transfers/BlockchainSynchronizer.h"
+#include "EldernodeIndexManager.h"  // For elderfier auto-registration
 #include "crypto/subaddress.h"
 
 namespace CryptoNote
@@ -70,6 +71,9 @@ public:
   bool hasBurnDepositSecret(const std::string& transactionHash);
   void markBurnDepositBPDFGenerated(const std::string& transactionHash);
   std::vector<BurnDepositInfo> getAllBurnDeposits();
+
+  // Elderfier auto-registration integration
+  void setEldernodeIndexManager(IEldernodeIndexManager* eldernodeIndexManager);
 
 private:
 
@@ -158,6 +162,7 @@ private:
                              const Currency &currency,
                              uint32_t height,
                              const std::vector<uint8_t> &transactionExtra);
+  void registerElderfierDeposit(const Deposit &deposit, DepositId depositId);
 
 protected:
   struct NewAddressData
@@ -462,6 +467,9 @@ protected:
 
   // Burn-secret storage
   std::map<std::string, BurnDepositInfo> m_burnDepositSecrets;
+
+  // Elderfier auto-registration
+  IEldernodeIndexManager* m_eldernodeIndexManager;
 };
 
 } //namespace CryptoNote

@@ -36,11 +36,6 @@ public:
   boost::uuids::uuid getNetworkId() const;
   size_t getPeerListConnectRange() const;
   size_t getPeerListGetTryCount() const;
-  bool getMeshtasticEnabled() const;
-  std::string getMeshtasticMqttBroker() const;
-  uint32_t getMeshtasticChannel() const;
-  std::string getMeshtasticChannelName() const;
-  std::string getMeshtasticEncryptionKey() const;
 
   // setters
   void setTimedSyncInterval(std::chrono::nanoseconds interval);
@@ -52,11 +47,6 @@ public:
   void setNetworkId(const boost::uuids::uuid& id);
   void setPeerListConnectRange(size_t range);
   void setPeerListGetTryCount(size_t count);
-  void setMeshtasticEnabled(bool enabled);
-  void setMeshtasticMqttBroker(const std::string& broker);
-  void setMeshtasticChannel(uint32_t channel);
-  void setMeshtasticChannelName(const std::string& name);
-  void setMeshtasticEncryptionKey(const std::string& key);
 
 private:
   std::chrono::nanoseconds timedSyncInterval;
@@ -68,11 +58,6 @@ private:
   size_t whiteListConnectionsPercent;
   size_t peerListConnectRange;
   size_t peerListGetTryCount;
-  bool meshtasticEnabled;
-  std::string meshtasticMqttBroker;
-  uint32_t meshtasticChannel;
-  std::string meshtasticChannelName;
-  std::string meshtasticEncryptionKey;
 };
 
 }

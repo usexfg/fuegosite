@@ -67,7 +67,8 @@ struct Deposit
   // Deposit type enum
   enum class Type : uint8_t {
     HEAT = 0x08,        // HEAT burn deposit (0x08)
-    COLD = 0xCD         // COLD yield deposit (0xCD)
+    COLD = 0xCD,        // COLD yield deposit (0xCD)
+    ELDERFIER = 0xEC    // ELDERFIER staking deposit (0xEC)
   };
 
   size_t creatingTransactionId;

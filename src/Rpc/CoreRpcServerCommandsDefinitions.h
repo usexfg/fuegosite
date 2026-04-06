@@ -1065,6 +1065,188 @@ struct K_COMMAND_RPC_CHECK_RESERVE_PROOF {
 };
 
 
+//-----------------------------------------------
+// Elderfier Signature Consensus RPC Endpoints
+//-----------------------------------------------
+
+struct COMMAND_RPC_GET_ELDERFIER_SIGNATURES {
+	typedef EMPTY_STRUCT request;
+
+	struct SignatureInfo {
+		uint8_t elderfier_id;
+		std::string signing_pubkey;  // Ed25519 pubkey hex (64 chars) — for L2 contract verification
+		std::string signature;       // Ed25519 signature hex (128 chars) — for L2 contract verification
+		uint64_t block_height;
+		uint64_t timestamp;
+		bool is_valid;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(elderfier_id)
+			KV_MEMBER(signing_pubkey)
+			KV_MEMBER(signature)
+			KV_MEMBER(block_height)
+			KV_MEMBER(timestamp)
+			KV_MEMBER(is_valid)
+		}
+	};
+
+	struct response {
+		std::vector<SignatureInfo> signatures;
+		std::string current_merkle_root;
+		uint64_t current_block_height;
+		size_t total_registered_elderfiers;
+		size_t signatures_received;
+		uint8_t consensus_percentage;
+		bool threshold_met;
+		std::vector<uint8_t> signed_by;
+		std::vector<uint8_t> pending;
+		std::string status;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(signatures)
+			KV_MEMBER(current_merkle_root)
+			KV_MEMBER(current_block_height)
+			KV_MEMBER(total_registered_elderfiers)
+			KV_MEMBER(signatures_received)
+			KV_MEMBER(consensus_percentage)
+			KV_MEMBER(threshold_met)
+			KV_MEMBER(signed_by)
+			KV_MEMBER(pending)
+			KV_MEMBER(status)
+		}
+	};
+};
+
+struct COMMAND_RPC_GET_ELDERFIER_CONSENSUS_STATUS {
+	typedef EMPTY_STRUCT request;
+
+	struct response {
+		std::string current_merkle_root;
+		uint64_t current_block_height;
+		size_t total_registered_elderfiers;
+		size_t elderfiers_signed;
+		uint8_t consensus_percentage;
+		std::vector<uint8_t> signed_by;
+		std::vector<uint8_t> pending;
+		bool meets_69_percent;
+		bool ready_for_user_claim;
+		uint64_t blocks_until_next_flush;
+		std::string status;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(current_merkle_root)
+			KV_MEMBER(current_block_height)
+			KV_MEMBER(total_registered_elderfiers)
+			KV_MEMBER(elderfiers_signed)
+			KV_MEMBER(consensus_percentage)
+			KV_MEMBER(signed_by)
+			KV_MEMBER(pending)
+			KV_MEMBER(meets_69_percent)
+			KV_MEMBER(ready_for_user_claim)
+			KV_MEMBER(blocks_until_next_flush)
+			KV_MEMBER(status)
+		}
+	};
+};
+
+struct COMMAND_RPC_GET_ELDERFIER_FEE_BALANCE {
+	struct request {
+		uint8_t elderfier_id;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(elderfier_id)
+		}
+	};
+
+	struct response {
+		uint8_t elderfier_id;
+		uint64_t accumulated_fees;
+		uint64_t total_fees_earned;
+		uint64_t number_of_rounds_signed;
+		std::string status;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(elderfier_id)
+			KV_MEMBER(accumulated_fees)
+			KV_MEMBER(total_fees_earned)
+			KV_MEMBER(number_of_rounds_signed)
+			KV_MEMBER(status)
+		}
+	};
+};
+
+struct COMMAND_RPC_GET_ELDERFIER_NETWORK_STATS {
+	typedef EMPTY_STRUCT request;
+
+	struct response {
+		uint64_t total_fees_distributed_all_time;
+		uint64_t total_fees_pending_in_escrow;
+		size_t total_registered_elderfiers;
+		uint64_t current_block_height;
+		std::string status;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(total_fees_distributed_all_time)
+			KV_MEMBER(total_fees_pending_in_escrow)
+			KV_MEMBER(total_registered_elderfiers)
+			KV_MEMBER(current_block_height)
+			KV_MEMBER(status)
+		}
+	};
+};
+
+// ============================================================================
+// ELDERFIER ELIGIBILITY CHECK
+// ============================================================================
+
+struct COMMAND_RPC_CHECK_ELDERFIER_ELIGIBILITY {
+	struct request {
+		std::string address;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(address)
+		}
+	};
+
+	struct response {
+		bool eligible;
+		std::string reason;
+		std::string status;
+
+		void serialize(ISerializer& s) {
+			KV_MEMBER(eligible)
+			KV_MEMBER(reason)
+			KV_MEMBER(status)
+		}
+	};
+};
+
+// Look up an EFier registration by signing pubkey (hex).
+// Used by elder_council wallet command to identify a registered EFier.
+struct COMMAND_RPC_GET_ELDERFIER_BY_PUBKEY {
+  struct request {
+    std::string signing_pubkey_hex;  // 64-hex Ed25519 public key
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(signing_pubkey_hex)
+    }
+  };
+
+  struct response {
+    bool found = false;
+    uint8_t elderfier_id = 0;
+    std::string ceremony_alias;
+    std::string status;  // "active" | "unstaking" | "void"
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(found)
+      KV_MEMBER(elderfier_id)
+      KV_MEMBER(ceremony_alias)
+      KV_MEMBER(status)
+    }
+  };
+};
+
 // ============================================================================
 // @ ALIAS SYSTEM RPC ENDPOINTS
 // ============================================================================
@@ -1178,7 +1360,7 @@ struct COMMAND_RPC_GET_COMMITMENT {
     uint32_t block_height;
     uint64_t amount;
     uint32_t term;
-    uint8_t type;               // 0=HEAT, 1=COLD
+    uint8_t type;               // 0=HEAT, 1=YIELD/COLD, 2=ELDERFIER_STAKING
     uint32_t target_chain_id;
     uint32_t leaf_index;
     bool is_legacy;         // true only for 0xCE migrations (original tx had MultisignatureOutput)
@@ -1210,6 +1392,8 @@ struct COMMAND_RPC_GET_COMMITMENT_STATS {
     uint32_t highest_block;
     std::string merkle_root;
     uint64_t consensus_percentage;
+    std::vector<uint8_t> signed_elderfier_ids;
+    std::vector<uint8_t> pending_elderfier_ids;
     std::string status;
 
     void serialize(ISerializer& s) {
@@ -1219,6 +1403,8 @@ struct COMMAND_RPC_GET_COMMITMENT_STATS {
       KV_MEMBER(highest_block)
       KV_MEMBER(merkle_root)
       KV_MEMBER(consensus_percentage)
+      KV_MEMBER(signed_elderfier_ids)
+      KV_MEMBER(pending_elderfier_ids)
       KV_MEMBER(status)
     }
   };
@@ -1291,6 +1477,93 @@ struct COMMAND_RPC_CHECK_COMMITMENT_EXISTS {
 
     void serialize(ISerializer& s) {
       KV_MEMBER(exists)
+      KV_MEMBER(status)
+    }
+  };
+};
+
+/** @brief Get per-epoch EFier activity report for elder_council review
+  * Pass epoch=0 for the most recent completed epoch.
+  */
+struct COMMAND_RPC_GET_EPOCH_REPORT {
+  struct request {
+    uint64_t epoch = 0;  // 0 = latest completed epoch
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(epoch)
+    }
+  };
+
+  struct EFierActivityRpc {
+    uint8_t elderfier_id;
+    std::string address;
+    std::string ceremony_alias;
+    bool signed_this_epoch;
+    uint64_t signatures_submitted;
+    uint64_t fees_earned;
+    bool is_slashed;
+    bool is_unstaking;
+    uint32_t consecutive_missed_epochs;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(elderfier_id)
+      KV_MEMBER(address)
+      KV_MEMBER(ceremony_alias)
+      KV_MEMBER(signed_this_epoch)
+      KV_MEMBER(signatures_submitted)
+      KV_MEMBER(fees_earned)
+      KV_MEMBER(is_slashed)
+      KV_MEMBER(is_unstaking)
+      KV_MEMBER(consecutive_missed_epochs)
+    }
+  };
+
+  struct DoubleSignRpc {
+    uint8_t elderfier_id;
+    std::string root_a;
+    std::string root_b;
+    uint64_t block_height;
+    uint64_t detected_at_block;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(elderfier_id)
+      KV_MEMBER(root_a)
+      KV_MEMBER(root_b)
+      KV_MEMBER(block_height)
+      KV_MEMBER(detected_at_block)
+    }
+  };
+
+  struct response {
+    bool found;
+    uint64_t epoch_number;
+    uint64_t epoch_start_block;
+    uint64_t epoch_end_block;
+    uint64_t generated_at_block;
+    uint64_t active_efer_count;
+    uint64_t participating_efer_count;
+    uint64_t total_fees_distributed;
+    std::vector<uint8_t> signing_efier_ids;
+    std::vector<uint8_t> missing_efier_ids;
+    std::vector<EFierActivityRpc> efier_activity;
+    std::vector<DoubleSignRpc> double_sign_events;
+    std::vector<std::string> slash_advisory;
+    std::string status;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(found)
+      KV_MEMBER(epoch_number)
+      KV_MEMBER(epoch_start_block)
+      KV_MEMBER(epoch_end_block)
+      KV_MEMBER(generated_at_block)
+      KV_MEMBER(active_efer_count)
+      KV_MEMBER(participating_efer_count)
+      KV_MEMBER(total_fees_distributed)
+      KV_MEMBER(signing_efier_ids)
+      KV_MEMBER(missing_efier_ids)
+      KV_MEMBER(efier_activity)
+      KV_MEMBER(double_sign_events)
+      KV_MEMBER(slash_advisory)
       KV_MEMBER(status)
     }
   };
@@ -1512,6 +1785,8 @@ struct COMMAND_RPC_GET_FEE_POOL_INFO {
     uint64_t current_epoch_swap_fees;
     uint64_t total_cd_locked;
     uint64_t current_epoch_number;
+    uint64_t active_efier_count;
+    uint64_t efier_swap_reward_per_block;
     std::string status;
 
     void serialize(ISerializer& s) {
@@ -1519,6 +1794,8 @@ struct COMMAND_RPC_GET_FEE_POOL_INFO {
       KV_MEMBER(current_epoch_swap_fees)
       KV_MEMBER(total_cd_locked)
       KV_MEMBER(current_epoch_number)
+      KV_MEMBER(active_efier_count)
+      KV_MEMBER(efier_swap_reward_per_block)
       KV_MEMBER(status)
     }
   };
@@ -1540,6 +1817,7 @@ struct COMMAND_RPC_GET_EPOCH_HISTORY {
     uint64_t total_cd_locked_at_start;
     uint64_t fee_rate_fixed_point;
     uint64_t total_fees_distributed;
+    uint64_t active_efier_count;
 
     void serialize(ISerializer& s) {
       KV_MEMBER(epoch_number)
@@ -1547,6 +1825,7 @@ struct COMMAND_RPC_GET_EPOCH_HISTORY {
       KV_MEMBER(total_cd_locked_at_start)
       KV_MEMBER(fee_rate_fixed_point)
       KV_MEMBER(total_fees_distributed)
+      KV_MEMBER(active_efier_count)
     }
   };
 

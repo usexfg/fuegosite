@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ type FuegoClient struct {
 }
 
 func NewFuegoClient(endpoint string) *FuegoClient {
-	log.Printf("FuegoClient.NewFuegoClient: creating client for endpoint %s", endpoint)
 	return &FuegoClient{
 		endpoint: endpoint,
 		client:   &http.Client{Timeout: 10 * time.Second},
@@ -306,13 +304,10 @@ func (c *FuegoClient) ResolveAlias(alias string) (string, bool) {
 // --- HTTP helper ---
 
 func (c *FuegoClient) post(path string, reqBody interface{}, result interface{}) error {
-	log.Printf("FuegoClient.post: sending request to %s%s", c.endpoint, path)
-
 	var body io.Reader
 	if reqBody != nil {
 		data, err := json.Marshal(reqBody)
 		if err != nil {
-			log.Printf("FuegoClient.post: marshal error for %s: %v", path, err)
 			return fmt.Errorf("marshal: %w", err)
 		}
 		body = bytes.NewReader(data)
@@ -320,22 +315,17 @@ func (c *FuegoClient) post(path string, reqBody interface{}, result interface{})
 
 	resp, err := c.client.Post(c.endpoint+path, "application/json", body)
 	if err != nil {
-		log.Printf("FuegoClient.post: request error for %s: %v", path, err)
 		return fmt.Errorf("request %s: %w", path, err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("FuegoClient.post: read error for %s: %v", path, err)
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 
 	if err := json.Unmarshal(raw, result); err != nil {
-		log.Printf("FuegoClient.post: decode error for %s: %v, raw response: %s", path, err, string(raw))
 		return fmt.Errorf("decode %s: %w", path, err)
 	}
-
-	log.Printf("FuegoClient.post: request to %s%s completed successfully", c.endpoint, path)
 	return nil
 }

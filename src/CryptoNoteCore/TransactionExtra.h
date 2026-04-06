@@ -24,6 +24,7 @@
 
 #include "../../include/CryptoNote.h"
 #include "ProofStructures.h"
+#include "../../include/EldernodeIndexTypes.h"
 
 #define TX_EXTRA_PADDING_MAX_COUNT          255
 #define TX_EXTRA_NONCE_MAX_COUNT            255
@@ -42,6 +43,9 @@
 #define TX_EXTRA_HEAT_COMMITMENT            0x08  // Heat commitment (burn)
 #define TX_EXTRA_BURN_RECEIPT               0x18  // Burn transaction receipt
 #define TX_EXTRA_DIGM_MINT                  0xA8  // DIGM coin mint (33% BURN / digm treasury 33% \ devs 33%)
+
+// 0xEF tag: Elderfier staking
+#define TX_EXTRA_ELDERFIER_DEPOSIT          0xEF  // Elderfier staking deposit (no banking fee)
 
 // 0x_A tags: DIGM Artist related meta/msgs/txns
 #define TX_EXTRA_DIGM_ALBUM                 0x0A  // Album metadata
@@ -62,6 +66,12 @@
 
 // 0x07 FUEGO MOB Custom Interest Assets   Check full compatibility -
 #define TX_EXTRA_YIELD_COMMITMENT           0x07  //  yield commitment
+
+// 0x_C tags: Elderfier system (consensus/messaging)
+#define TX_EXTRA_ELDERFIER_MESSAGE          0xEC  // Elderfier messaging/consensus
+
+// 0xEA tag: @ Alias registration (on-chain)
+#define TX_EXTRA_ELDERFIER_ALIAS            0xEA  // @ alias registration for Elderfiers and users
 
 // 0xCE tag: COLD migration (register v3 commitment for a pre-v3 legacy deposit)
 #define TX_EXTRA_COLD_MIGRATION             0xCE
@@ -127,6 +137,53 @@ struct TransactionExtraYieldCommitment {
   bool serialize(ISerializer& serializer);
 };
 
+struct TransactionExtraElderfierDeposit {
+  Crypto::Hash depositHash;         // Unique deposit identifier (H(ephemeralPubKey))
+  uint64_t depositAmount;           // XFG amount (minimum 800 XFG)
+  Crypto::Hash elderfierCommitment; // 🔒 SECURE: H(spendPublicKey || ephemeralPublicKey) — one-way commitment
+  uint32_t securityWindow;          // Security window in seconds (8 hours = 28800)
+  std::vector<uint8_t> metadata;   // Additional metadata
+  std::vector<uint8_t> signature;   // Deposit signature
+  bool isSlashable;                // True - deposits can be slashed by Elder Council
+
+  bool serialize(ISerializer& serializer);
+  bool isValid() const;
+  std::string toString() const;
+};
+
+struct TransactionExtraElderfierMessage {
+  Crypto::PublicKey senderKey;         // Elderfier node public key
+  Crypto::PublicKey recipientKey;      // Target Elderfier node public key (or broadcast)
+  uint32_t messageType;                // Message type (consensus, slashing, monitoring, etc.)
+  uint64_t timestamp;                  // Message timestamp
+  std::vector<uint8_t> messageData;    // Encrypted message payload
+  std::vector<uint8_t> signature;      // Message signature
+
+  // Consensus requirements (for 0xEF transactions)
+  bool consensusRequired;              // Whether this message requires consensus validation
+  ElderfierConsensusType consensusType; // Type of consensus required (QUORUM, PROOF, WITNESS)
+  uint32_t requiredThreshold;          // Threshold required (e.g., 80 for quorum)
+  Crypto::Hash targetDepositHash;      // Target 0xEF deposit hash (for slashing messages)
+
+  bool serialize(ISerializer& serializer);
+  bool isValid() const;
+  bool requiresQuorumConsensus() const; // Check if this message requires quorum
+  std::string toString() const;
+};
+
+// @ Alias registration structure (0xEA)
+struct TransactionExtraAliasRegistration {
+  uint8_t version = 1;             // Schema version
+  std::string alias;               // Exactly 8 chars: [A-Z0-9] for EFiers, [a-z0-9] for regular users
+  Crypto::Hash aliasHash;          // cn_fast_hash(alias) for fast lookup
+  Crypto::Hash addressHash;        // cn_fast_hash(address) for privacy
+  std::string ownerAddress;        // Full wallet address (optional: can be empty for privacy)
+  uint8_t aliasType = 0;           // 0 = Elderfier (ALLCAPS [A-Z0-9]), 1 = Regular user (lowercase [a-z0-9])
+
+  bool serialize(ISerializer& serializer);
+  bool isValid() const;
+};
+
 // DIGM transaction extra structures will be implemented later
 // Reserved tags: 0x0A (Album), 0x0B (Listen Rights), 0x0C (Curator), 0x1C (CURA Coin), 0xA8 (DIGM Mint)
 
@@ -179,21 +236,22 @@ struct DepositCommitmentKeys {
 
 // Derive all commitment keys from a 32-byte deposit secret.
 // For HEAT burns: caller discards keyScalar (permanently non-spendable).
-// For COLD/Yield: store depositSecret encrypted in tx_extra (TX_EXTRA_DEPOSIT_SECRET).
+// For COLD/EFier: store depositSecret encrypted in tx_extra (TX_EXTRA_DEPOSIT_SECRET).
 // The masks let the wallet compute + verify amountCommitment and termCommitment.
 DepositCommitmentKeys deriveCommitmentKeys(const std::array<uint8_t, 32>& depositSecret);
 
 // ============================================================
 // Unified Deposit Secret for v10+ Commitment Outputs (0xD5)
 // ============================================================
-// All v10+ deposit types (COLD, HEAT, Yield) write a SINGLE 0xD5 tag.
+// All v10+ deposit types (COLD, HEAT, EFier, Yield) write a SINGLE 0xD5 tag.
 // The deposit type is encoded inside the encrypted payload — no type-revealing
-// tag appears on-chain. Old tags (0x08, 0xCD) remain for legacy multisig
+// tag appears on-chain. Old tags (0x08, 0xCD, 0xEF) remain for legacy multisig
 // deposits only.
 
 enum class DepositType : uint8_t {
   COLD      = 0x01,  // COLD CD deposit — withdrawable after term
   HEAT      = 0x02,  // HEAT burn — permanent, key discarded
+  ELDERFIER = 0x03,  // Elderfier stake — review window on unstake
   YIELD     = 0x04,  // Yield / CIA deposit
 };
 
@@ -240,7 +298,7 @@ bool getDepositSecretFromExtra(const std::vector<uint8_t>& tx_extra,
 bool addColdMigrationToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraColdMigration& migration);
 
 
-typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraYieldCommitment, CryptoNote::TransactionExtraColdCommitment, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
+typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraElderfierDeposit, CryptoNote::TransactionExtraElderfierMessage, CryptoNote::TransactionExtraAliasRegistration, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraYieldCommitment, CryptoNote::TransactionExtraColdCommitment, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
 
 
 
@@ -284,6 +342,25 @@ bool getHeatCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, Transactio
 bool createTxExtraWithYieldCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term, const std::string& CIAId, const std::vector<uint8_t>& metadata, uint8_t claimChainCode, const std::vector<uint8_t>& gift_secret, std::vector<uint8_t>& extra);
 bool addYieldCommitmentToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraYieldCommitment& commitment);
 bool getYieldCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraYieldCommitment& commitment);
+
+// Elderfier Deposit helper functions (contingency-based)
+bool createTxExtraWithElderfierDeposit(const Crypto::Hash& depositHash, uint64_t depositAmount, const Crypto::Hash& elderfierCommitment, uint32_t securityWindow, const std::vector<uint8_t>& metadata, std::vector<uint8_t>& extra);
+bool addElderfierDepositToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraElderfierDeposit& deposit);
+bool getElderfierDepositFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraElderfierDeposit& deposit);
+
+// Elderfier Message helper functions (messaging/monitoring)
+bool createTxExtraWithElderfierMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, uint64_t timestamp, const std::vector<uint8_t>& messageData, std::vector<uint8_t>& extra);
+bool addElderfierMessageToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraElderfierMessage& message);
+bool getElderfierMessageFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraElderfierMessage& message);
+
+// Consensus-specific message creation functions
+bool createElderfierQuorumMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, const Crypto::Hash& targetDepositHash, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
+bool createElderfierProofMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
+bool createElderfierWitnessMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
+
+// @ Alias registration helper functions
+bool addAliasToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraAliasRegistration& alias);
+bool getAliasFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraAliasRegistration& alias);
 
 // DIGM helper functions will be implemented later
 

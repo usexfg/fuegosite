@@ -184,6 +184,18 @@ namespace CryptoNote {
     // Direct CommitmentIndex access (for epoch reports, slash queries)
     const CommitmentIndex& getCommitmentIndex() const;
 
+    // Elderfier consensus accessors
+    std::vector<uint8_t> getCommitmentSignedElderfierIds() const;
+    std::vector<uint8_t> getCommitmentPendingElderfierIds() const;
+    uint64_t getCommitmentConsensusPercentage() const;
+    std::vector<CommitmentIndex::ElderfierSignatureBundle> getSignaturesForCurrentRoot() const;
+
+    // Elderfier fee tracking
+    size_t getActiveElderfierCount() const;
+
+    // Elderfier registration lifecycle proxies
+    bool canAddressRegisterElderfier(const std::string& address) const;
+
     // @ Alias system proxies
     bool aliasExists(const std::string& alias) const;
     std::optional<AliasEntry> getAliasByName(const std::string& alias) const;
