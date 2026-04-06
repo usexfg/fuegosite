@@ -23,9 +23,24 @@
 #include <list>
 #include <boost/uuid/uuid.hpp>
 
-#ifdef ENABLE_FUEGOMESH
-#include "FuegoMeshtastic/MeshtasticIntegration.h"
-#endif
+#pragma once
+
+#include "../../include/CryptoNote.h"
+#include "../CryptoNoteConfig.h"
+#include "P2pProtocolTypes.h"
+#include <list>
+#include <boost/uuid/uuid.hpp>
+
+// #ifdef ENABLE_FUEGOMESH
+// #include "FuegoMeshtastic/MeshtasticIntegration.h"
+// #endif
+
+namespace CryptoNote {
+
+  // Forward declarations
+  class MeshPeerManager;
+
+} // namespace CryptoNote
 
 namespace CryptoNote {
 

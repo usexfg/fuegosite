@@ -23,13 +23,15 @@
 #include <sstream>
 #include <cstring>
 #include <ctime>
+#include "../Logging/ILogger.h"
 
 namespace XfgSwap {
 
 SwapDaemon::SwapDaemon(const std::string& fuegodHost, uint16_t fuegodPort,
-                       const std::string& dataDir, Logging::ILogger& logger)
+                        const std::string& dataDir, Logging::ILogger& logger)
   : m_rpc(fuegodHost, fuegodPort)
   , m_db(dataDir)
+  , m_poolOrganizer(logger)
   , m_logger(logger, "SwapDaemon") {
 }
 
@@ -520,7 +522,71 @@ bool SwapDaemon::refund(const std::string& swapId) {
 }
 
 PriceOracle& SwapDaemon::priceOracle() {
-  return m_oracle;
-}
+   return m_oracle;
+ }
 
+ // Pool operations delegated to PoolOrganizer
+ bool SwapDaemon::createPool(const PoolId& poolId) {
+   return m_poolOrganizer.createPool(poolId);
+ }
+
+ bool SwapDaemon::getPool(const PoolId& poolId, PoolState& state) const {
+   return m_poolOrganizer.getPool(poolId, state);
+ }
+
+ std::vector<PoolId> SwapDaemon::getActivePools() const {
+   return m_poolOrganizer.getActivePools();
+ }
+
+ PoolCheckpoint SwapDaemon::processDeposit(const LPDepositParams& params, uint64_t shareAmount) {
+   return m_poolOrganizer.processDeposit(params, shareAmount);
+ }
+
+ PoolCheckpoint SwapDaemon::processWithdrawal(const LPWithdrawalParams& params, WithdrawalAmounts& amounts) {
+   return m_poolOrganizer.processWithdrawal(params, amounts);
+ }
+
+ PoolOrganizer::SwapResult SwapDaemon::executeSwap(const PoolSwapOrder& order) {
+   return m_poolOrganizer.executeSwap(order);
+ }
+
+ uint64_t SwapDaemon::getExpectedOutput(const PoolId& poolId, bool swapAforB, uint64_t inputAmount) const {
+   return m_poolOrganizer.getExpectedOutput(poolId, swapAforB, inputAmount);
+ }
+
+ PoolOrganizer::ClaimableFees SwapDaemon::getClaimableFees(const Crypto::PublicKey& owner, const PoolId& poolId) const {
+   return m_poolOrganizer.getClaimableFees(owner, poolId);
+ }
+
+ PoolCheckpoint SwapDaemon::processFeeClaim(const Crypto::PublicKey& owner, const PoolId& poolId, PoolOrganizer::ClaimableFees& claimed) {
+   return m_poolOrganizer.processFeeClaim(owner, poolId, claimed);
+ }
+
+ PoolCheckpoint SwapDaemon::generateCheckpoint(const PoolId& poolId) {
+   return m_poolOrganizer.generateCheckpoint(poolId);
+ }
+
+ bool SwapDaemon::getCurrentCheckpoint(const PoolId& poolId, PoolCheckpoint& checkpoint) const {
+   return m_poolOrganizer.getCurrentCheckpoint(poolId, checkpoint);
+ }
+
+ bool SwapDaemon::verifyCheckpoint(const PoolId& poolId, const PoolCheckpoint& checkpoint) const {
+   return m_poolOrganizer.verifyCheckpoint(poolId, checkpoint);
+ }
+
+ bool SwapDaemon::getLPShares(const Crypto::PublicKey& owner, const PoolId& poolId, LPShare& shares) const {
+   return m_poolOrganizer.getLPShares(owner, poolId, shares);
+ }
+
+ std::vector<Crypto::Hash> SwapDaemon::getLPShareProof(const Crypto::PublicKey& owner, const PoolId& poolId, size_t& leafIndex) const {
+   return m_poolOrganizer.getLPShareProof(owner, poolId, leafIndex);
+ }
+
+ PoolOrganizer::PoolStats SwapDaemon::getPoolStats(const PoolId& poolId) const {
+   return m_poolOrganizer.getPoolStats(poolId);
+ }
+
+ uint64_t SwapDaemon::getSpotPrice(const PoolId& poolId) const {
+   return m_poolOrganizer.getSpotPrice(poolId);
+ }
 } // namespace XfgSwap

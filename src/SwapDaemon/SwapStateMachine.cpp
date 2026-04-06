@@ -15,6 +15,8 @@
 #include "SwapStateMachine.h"
 #include "Common/JsonValue.h"
 #include "Common/StringTools.h"
+#include "../Common/pod-class.h"
+#include "../crypto/hash.h"
 #include <sstream>
 #include <cstring>
 
@@ -82,6 +84,68 @@ bool SwapStateMachine::isValidTransition(SwapState newState) const {
     case SwapState::ADAPTOR_SECRET_REVEALED:
       return newState == SwapState::ADAPTOR_XFG_SPENT;
 
+    // ── Pool operations ──
+    case SwapState::POOL_DEPOSIT_INITIATED:
+      return newState == SwapState::POOL_DEPOSIT_LOCKED_A;
+
+    case SwapState::POOL_DEPOSIT_LOCKED_A:
+      return newState == SwapState::POOL_DEPOSIT_LOCKED_B;
+
+    case SwapState::POOL_DEPOSIT_LOCKED_B:
+      return newState == SwapState::POOL_DEPOSIT_CONFIRMED;
+
+    case SwapState::POOL_DEPOSIT_CONFIRMED:
+      return newState == SwapState::POOL_DEPOSIT_COMPLETE ||
+             newState == SwapState::POOL_DEPOSIT_REFUNDED;
+
+    case SwapState::POOL_DEPOSIT_COMPLETE:
+      return newState == SwapState::POOL_CHECKPOINT_GENERATED;
+
+    case SwapState::POOL_DEPOSIT_REFUNDED:
+      return newState == SwapState::FAILED;
+
+    case SwapState::POOL_WITHDRAW_INITIATED:
+      return newState == SwapState::POOL_WITHDRAW_LOCKED;
+
+    case SwapState::POOL_WITHDRAW_LOCKED:
+      return newState == SwapState::POOL_WITHDRAW_COMPLETE ||
+             newState == SwapState::POOL_WITHDRAW_REFUNDED;
+
+    case SwapState::POOL_WITHDRAW_COMPLETE:
+      return newState == SwapState::POOL_CHECKPOINT_GENERATED;
+
+    case SwapState::POOL_WITHDRAW_REFUNDED:
+      return newState == SwapState::FAILED;
+
+    case SwapState::POOL_SWAP_INITIATED:
+      return newState == SwapState::POOL_SWAP_EXECUTED;
+
+    case SwapState::POOL_SWAP_EXECUTED:
+      return newState == SwapState::POOL_SWAP_COMPLETE ||
+             newState == SwapState::POOL_SWAP_REFUNDED;
+
+    case SwapState::POOL_SWAP_COMPLETE:
+      return newState == SwapState::POOL_CHECKPOINT_GENERATED;
+
+    case SwapState::POOL_SWAP_REFUNDED:
+      return newState == SwapState::FAILED;
+
+    case SwapState::POOL_FEE_CLAIM_INITIATED:
+      return newState == SwapState::POOL_FEE_CLAIMED;
+
+    case SwapState::POOL_FEE_CLAIMED:
+      return newState == SwapState::POOL_CHECKPOINT_GENERATED;
+
+    case SwapState::POOL_FEE_CLAIM_REFUNDED:
+      return newState == SwapState::FAILED;
+
+    case SwapState::POOL_CHECKPOINT_GENERATED:
+      // Can transition to any new pool operation or back to initiated for new cycle
+      return newState == SwapState::POOL_DEPOSIT_INITIATED ||
+             newState == SwapState::POOL_WITHDRAW_INITIATED ||
+             newState == SwapState::POOL_SWAP_INITIATED ||
+             newState == SwapState::POOL_FEE_CLAIM_INITIATED;
+
     // Terminal states
     case SwapState::ADAPTOR_XFG_SPENT:
     case SwapState::ADAPTOR_REFUNDED:
@@ -126,7 +190,16 @@ time_t SwapStateMachine::updatedAt() const {
 bool SwapStateMachine::isTerminal() const {
   return m_state == SwapState::ADAPTOR_XFG_SPENT ||
          m_state == SwapState::ADAPTOR_REFUNDED ||
-         m_state == SwapState::FAILED;
+         m_state == SwapState::FAILED ||
+         m_state == SwapState::POOL_DEPOSIT_COMPLETE ||
+         m_state == SwapState::POOL_DEPOSIT_REFUNDED ||
+         m_state == SwapState::POOL_WITHDRAW_COMPLETE ||
+         m_state == SwapState::POOL_WITHDRAW_REFUNDED ||
+         m_state == SwapState::POOL_SWAP_COMPLETE ||
+         m_state == SwapState::POOL_SWAP_REFUNDED ||
+         m_state == SwapState::POOL_FEE_CLAIMED ||
+         m_state == SwapState::POOL_FEE_CLAIM_REFUNDED ||
+         m_state == SwapState::POOL_CHECKPOINT_GENERATED;
 }
 
 std::string SwapStateMachine::serialize() const {

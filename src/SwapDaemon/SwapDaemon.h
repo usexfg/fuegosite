@@ -19,7 +19,9 @@
 #include "SwapDatabase.h"
 #include "FuegoRpcClient.h"
 #include "PriceOracle.h"
-#include "Logging/LoggerRef.h"
+#include "../Logging/ILogger.h"
+#include "../Logging/LoggerRef.h"
+#include "PoolOrganizer.h"
 
 #include <string>
 #include <memory>
@@ -65,13 +67,31 @@ public:
   // Print detailed info about a specific swap.
   void showSwap(const std::string& swapId);
 
-  // Attempt to refund a specific swap (if timeout has elapsed).
-  bool refund(const std::string& swapId);
+   // Attempt to refund a specific swap (if timeout has elapsed).
+   bool refund(const std::string& swapId);
 
-  // Access the price oracle for configuration.
-  PriceOracle& priceOracle();
+   // Access the price oracle for configuration.
+   PriceOracle& priceOracle();
 
-private:
+   // Pool operations
+   bool createPool(const PoolId& poolId);
+   bool getPool(const PoolId& poolId, PoolState& state) const;
+   std::vector<PoolId> getActivePools() const;
+   PoolCheckpoint processDeposit(const LPDepositParams& params, uint64_t shareAmount);
+   PoolCheckpoint processWithdrawal(const LPWithdrawalParams& params, WithdrawalAmounts& amounts);
+   PoolOrganizer::SwapResult executeSwap(const PoolSwapOrder& order);
+   uint64_t getExpectedOutput(const PoolId& poolId, bool swapAforB, uint64_t inputAmount) const;
+   PoolOrganizer::ClaimableFees getClaimableFees(const Crypto::PublicKey& owner, const PoolId& poolId) const;
+   PoolCheckpoint processFeeClaim(const Crypto::PublicKey& owner, const PoolId& poolId, PoolOrganizer::ClaimableFees& claimed);
+   PoolCheckpoint generateCheckpoint(const PoolId& poolId);
+   bool getCurrentCheckpoint(const PoolId& poolId, PoolCheckpoint& checkpoint) const;
+   bool verifyCheckpoint(const PoolId& poolId, const PoolCheckpoint& checkpoint) const;
+   bool getLPShares(const Crypto::PublicKey& owner, const PoolId& poolId, LPShare& shares) const;
+   std::vector<Crypto::Hash> getLPShareProof(const Crypto::PublicKey& owner, const PoolId& poolId, size_t& leafIndex) const;
+   PoolOrganizer::PoolStats getPoolStats(const PoolId& poolId) const;
+   uint64_t getSpotPrice(const PoolId& poolId) const;
+
+ private:
   // Scan non-terminal swaps and warn about any stuck longer than threshold.
   // Called from checkTimeouts().
   void checkStuckSwaps();
@@ -102,15 +122,16 @@ private:
 
   static constexpr int TICK_INTERVAL_SECS = 30;
 
-  FuegoRpcClient m_rpc;
-  SwapDatabase m_db;
-  PriceOracle m_oracle;
-  Logging::LoggerRef m_logger;
+   FuegoRpcClient m_rpc;
+   SwapDatabase m_db;
+   PriceOracle m_oracle;
+   PoolOrganizer m_poolOrganizer;
+   Logging::LoggerRef m_logger;
 
-  std::thread           m_tickThread;
-  std::atomic<bool>     m_running{false};
-  std::mutex            m_tickMutex;
-  std::condition_variable m_tickCv;
+   std::thread           m_tickThread;
+   std::atomic<bool>     m_running{false};
+   std::mutex            m_tickMutex;
+   std::condition_variable m_tickCv;
 };
 
 } // namespace XfgSwap

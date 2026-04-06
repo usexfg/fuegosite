@@ -55,7 +55,31 @@ enum class SwapState : uint8_t {
   ADAPTOR_CTR_LOCKED     = 13,   // counterparty chain locked
   ADAPTOR_SECRET_REVEALED = 14,  // adaptor secret learned (from ctr chain claim)
   ADAPTOR_XFG_SPENT      = 15,   // adapted sig broadcast, escrow spent
-  ADAPTOR_REFUNDED       = 16    // cooperative refund completed
+  ADAPTOR_REFUNDED       = 16,   // cooperative refund completed
+
+  // ── Pool operations ──
+  POOL_DEPOSIT_INITIATED  = 20,   // LP provider requests deposit
+  POOL_DEPOSIT_LOCKED_A   = 21,   // Asset A locked in escrow
+  POOL_DEPOSIT_LOCKED_B   = 22,   // Asset B locked in escrow
+  POOL_DEPOSIT_CONFIRMED  = 23,   // Both locked, LP shares minted
+  POOL_DEPOSIT_COMPLETE   = 24,   // Escrow spent, reserves updated
+  POOL_DEPOSIT_REFUNDED   = 25,   // Deposit cancelled, assets returned
+
+  POOL_WITHDRAW_INITIATED = 30,   // LP provider requests withdrawal
+  POOL_WITHDRAW_LOCKED    = 31,   // Shares nullified, assets prepared
+  POOL_WITHDRAW_COMPLETE  = 32,   // Assets returned to LP provider
+  POOL_WITHDRAW_REFUNDED  = 33,   // Withdrawal cancelled
+
+  POOL_SWAP_INITIATED     = 40,   // Swap order submitted
+  POOL_SWAP_EXECUTED      = 41,   // Swap processed, reserves updated
+  POOL_SWAP_COMPLETE      = 42,   // Atomic swap finished
+  POOL_SWAP_REFUNDED      = 43,   // Swap cancelled
+
+  POOL_FEE_CLAIM_INITIATED = 50,  // LP provider requests fee claim
+  POOL_FEE_CLAIMED         = 51,  // Fees paid to LP provider
+  POOL_FEE_CLAIM_REFUNDED  = 52,  // Fee claim cancelled
+
+  POOL_CHECKPOINT_GENERATED = 60  // Checkpoint attestation generated
 };
 
 enum class SwapRole : uint8_t {

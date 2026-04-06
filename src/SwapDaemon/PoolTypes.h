@@ -25,9 +25,9 @@
 #pragma once
 
 #include "SwapTypes.h"
-#include "crypto/hash.h"
-#include "crypto/crypto.h"
-#include "crypto/musig2.h"
+#include "../../src/crypto/hash.h"
+#include "../../src/crypto/crypto.h"
+#include "../../src/crypto/musig2.h"
 
 #include <string>
 #include <cstdint>
@@ -46,8 +46,8 @@ struct PoolId {
   uint32_t feeBps;       // fee in basis points (e.g., 30 = 0.3%)
 
   bool operator==(const PoolId& other) const {
-    return assetA == other.assetA &&
-           assetB == other.assetB &&
+    return memcmp(assetA.data, other.assetA.data, sizeof(assetA.data)) == 0 &&
+           memcmp(assetB.data, other.assetB.data, sizeof(assetB.data)) == 0 &&
            feeBps == other.feeBps;
   }
 
@@ -56,8 +56,10 @@ struct PoolId {
   }
 
   bool operator<(const PoolId& other) const {
-    if (assetA != other.assetA) return assetA < other.assetA;
-    if (assetB != other.assetB) return assetB < other.assetB;
+    int cmp = memcmp(assetA.data, other.assetA.data, sizeof(assetA.data));
+    if (cmp != 0) return cmp < 0;
+    cmp = memcmp(assetB.data, other.assetB.data, sizeof(assetB.data));
+    if (cmp != 0) return cmp < 0;
     return feeBps < other.feeBps;
   }
 };

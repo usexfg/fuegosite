@@ -47,14 +47,14 @@ file(GLOB_RECURSE Optimizer Optimizer/*)
 #add_subdirectory(FuegoTor)
 
 # Meshtastic integration for offline/off-grid fallback
-add_subdirectory(FuegoMeshtastic)
+#add_subdirectory(FuegoMeshtastic)
 
 # Define ENABLE_FUEGOMESH globally for targets that need it
-add_compile_definitions(ENABLE_FUEGOMESH)
+#add_compile_definitions(ENABLE_FUEGOMESH)
 
 # Eldernode services
-add_subdirectory(EldernodeIndexManager)
-add_subdirectory(BurnDepositValidationService)
+# add_subdirectory(EldernodeIndexManager)
+# add_subdirectory(BurnDepositValidationService)
 
 # System files
 if(MSVC)
@@ -216,10 +216,18 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapTypes.cpp
     SwapDaemon/SwapStateMachine.cpp
     SwapDaemon/SwapDatabase.cpp
+    SwapDaemon/AdaptorSwap.cpp
+    SwapDaemon/PoolTypes.cpp
+    SwapDaemon/PoolAMM.cpp
+    SwapDaemon/PoolAttestation.cpp
+    SwapDaemon/PoolOrganizer.cpp
+    SwapDaemon/PoolP2P.cpp
+    SwapDaemon/PoolDatabase.cpp
 )
 target_include_directories(SwapDaemonLib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/SwapDaemon
 )
 target_link_libraries(SwapDaemonLib PUBLIC Common)
 target_include_directories(SwapDaemonLib SYSTEM PUBLIC ${JSONCPP_INCLUDE_DIRS})
@@ -305,6 +313,12 @@ add_executable(SwapDaemon
     SwapDaemon/BitcoinCash/BchRpcClient.cpp
     SwapDaemon/BitcoinCash/HtlcScript.cpp
     SwapDaemon/Solana/SolRpcClient.cpp
+    SwapDaemon/PoolTypes.cpp
+    SwapDaemon/PoolAMM.cpp
+    SwapDaemon/PoolAttestation.cpp
+    SwapDaemon/PoolOrganizer.cpp
+    SwapDaemon/PoolP2P.cpp
+    SwapDaemon/PoolDatabase.cpp
 )
 
 # Add TestnetWallet executable (extends simple_wallet with testnet-specific commands)
