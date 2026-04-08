@@ -88,7 +88,7 @@ include_directories(
 
 # Source files
 set(FUEGOTOR_SOURCES
-    src/FuegoTor.cpp
+    src/Fuegotor.cpp
 )
 
 # Create FuegoTor library
@@ -181,7 +181,7 @@ endif()
 
 # Export configuration
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/config/FuegoTorConfig.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/FuegotorConfig.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/FuegoTorConfig.h
     @ONLY
 )

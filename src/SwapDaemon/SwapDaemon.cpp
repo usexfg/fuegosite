@@ -153,7 +153,7 @@ bool SwapDaemon::initiate(SwapParams params) {
     m_logger(Logging::WARNING)
       << "Swap rate is significantly above market TWAP. Proceeding.";
   }
-  if (rc == RateCheck::NO_DATA) {
+  if (rc == RateCheck::RATE_NO_DATA) {
     m_logger(Logging::INFO)
       << "No TWAP data yet (bootstrap mode). Seed rate: "
       << PriceOracle::getSeedRate(params.pair) << " XFG per 1 "

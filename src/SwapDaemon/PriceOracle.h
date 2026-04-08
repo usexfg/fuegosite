@@ -39,7 +39,7 @@ enum class RateCheck {
   OK,                // rate is acceptable
   BELOW_FLOOR,       // rate is >= 50% below TWAP — REJECT
   ABOVE_MARKET,      // rate is significantly above TWAP — WARN but allow
-  NO_DATA            // no TWAP yet, allow freely (bootstrap phase)
+  RATE_NO_DATA       // no TWAP yet, allow freely (bootstrap phase)
 };
 
 class PriceOracle {

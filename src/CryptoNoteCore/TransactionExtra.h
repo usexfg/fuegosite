@@ -24,7 +24,6 @@
 
 #include "../../include/CryptoNote.h"
 #include "ProofStructures.h"
-#include "../../include/EldernodeIndexTypes.h"
 
 #define TX_EXTRA_PADDING_MAX_COUNT          255
 #define TX_EXTRA_NONCE_MAX_COUNT            255
@@ -135,40 +134,6 @@ struct TransactionExtraYieldCommitment {
 
 
   bool serialize(ISerializer& serializer);
-};
-
-struct TransactionExtraElderfierDeposit {
-  Crypto::Hash depositHash;         // Unique deposit identifier (H(ephemeralPubKey))
-  uint64_t depositAmount;           // XFG amount (minimum 800 XFG)
-  Crypto::Hash elderfierCommitment; // 🔒 SECURE: H(spendPublicKey || ephemeralPublicKey) — one-way commitment
-  uint32_t securityWindow;          // Security window in seconds (8 hours = 28800)
-  std::vector<uint8_t> metadata;   // Additional metadata
-  std::vector<uint8_t> signature;   // Deposit signature
-  bool isSlashable;                // True - deposits can be slashed by Elder Council
-
-  bool serialize(ISerializer& serializer);
-  bool isValid() const;
-  std::string toString() const;
-};
-
-struct TransactionExtraElderfierMessage {
-  Crypto::PublicKey senderKey;         // Elderfier node public key
-  Crypto::PublicKey recipientKey;      // Target Elderfier node public key (or broadcast)
-  uint32_t messageType;                // Message type (consensus, slashing, monitoring, etc.)
-  uint64_t timestamp;                  // Message timestamp
-  std::vector<uint8_t> messageData;    // Encrypted message payload
-  std::vector<uint8_t> signature;      // Message signature
-
-  // Consensus requirements (for 0xEF transactions)
-  bool consensusRequired;              // Whether this message requires consensus validation
-  ElderfierConsensusType consensusType; // Type of consensus required (QUORUM, PROOF, WITNESS)
-  uint32_t requiredThreshold;          // Threshold required (e.g., 80 for quorum)
-  Crypto::Hash targetDepositHash;      // Target 0xEF deposit hash (for slashing messages)
-
-  bool serialize(ISerializer& serializer);
-  bool isValid() const;
-  bool requiresQuorumConsensus() const; // Check if this message requires quorum
-  std::string toString() const;
 };
 
 // @ Alias registration structure (0xEA)
@@ -298,7 +263,7 @@ bool getDepositSecretFromExtra(const std::vector<uint8_t>& tx_extra,
 bool addColdMigrationToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraColdMigration& migration);
 
 
-typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraElderfierDeposit, CryptoNote::TransactionExtraElderfierMessage, CryptoNote::TransactionExtraAliasRegistration, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraYieldCommitment, CryptoNote::TransactionExtraColdCommitment, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
+typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraAliasRegistration, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraYieldCommitment, CryptoNote::TransactionExtraColdCommitment, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
 
 
 
@@ -342,21 +307,6 @@ bool getHeatCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, Transactio
 bool createTxExtraWithYieldCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term, const std::string& CIAId, const std::vector<uint8_t>& metadata, uint8_t claimChainCode, const std::vector<uint8_t>& gift_secret, std::vector<uint8_t>& extra);
 bool addYieldCommitmentToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraYieldCommitment& commitment);
 bool getYieldCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraYieldCommitment& commitment);
-
-// Elderfier Deposit helper functions (contingency-based)
-bool createTxExtraWithElderfierDeposit(const Crypto::Hash& depositHash, uint64_t depositAmount, const Crypto::Hash& elderfierCommitment, uint32_t securityWindow, const std::vector<uint8_t>& metadata, std::vector<uint8_t>& extra);
-bool addElderfierDepositToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraElderfierDeposit& deposit);
-bool getElderfierDepositFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraElderfierDeposit& deposit);
-
-// Elderfier Message helper functions (messaging/monitoring)
-bool createTxExtraWithElderfierMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, uint64_t timestamp, const std::vector<uint8_t>& messageData, std::vector<uint8_t>& extra);
-bool addElderfierMessageToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraElderfierMessage& message);
-bool getElderfierMessageFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraElderfierMessage& message);
-
-// Consensus-specific message creation functions
-bool createElderfierQuorumMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, const Crypto::Hash& targetDepositHash, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
-bool createElderfierProofMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
-bool createElderfierWitnessMessage(const Crypto::PublicKey& senderKey, const Crypto::PublicKey& recipientKey, uint32_t messageType, const std::vector<uint8_t>& messageData, uint64_t timestamp, TransactionExtraElderfierMessage& message);
 
 // @ Alias registration helper functions
 bool addAliasToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraAliasRegistration& alias);

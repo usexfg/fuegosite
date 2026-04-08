@@ -44,7 +44,10 @@ list(APPEND SimpleWallet
 file(GLOB_RECURSE Optimizer Optimizer/*)
 
 # Tor integration
-#add_subdirectory(FuegoTor)
+add_subdirectory(FuegoTor)
+
+# I2P integration
+add_subdirectory(FuegoI2P)
 
 # Meshtastic integration for offline/off-grid fallback
 #add_subdirectory(FuegoMeshtastic)
@@ -334,14 +337,15 @@ add_executable(testnet-wallet-cli
 # FuegoTor library path is handled by target_link_directories
 # No global link_directories needed to avoid path duplication
 
-# Add link directory to ensure FuegoTor can be found for all relevant targets
+# Add link directory to ensure FuegoTor and FuegoI2P can be found for all relevant targets
 set(FUEGOTOR_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoTor)
-target_link_directories(PaymentGateService PRIVATE ${FUEGOTOR_LIB_PATH})
-target_link_directories(SimpleWallet PRIVATE ${FUEGOTOR_LIB_PATH})
-target_link_directories(Daemon PRIVATE ${FUEGOTOR_LIB_PATH})
-target_link_directories(TestnetDaemon PRIVATE ${FUEGOTOR_LIB_PATH})
-target_link_directories(testnet-wallet-cli PRIVATE ${FUEGOTOR_LIB_PATH})
-target_link_directories(SwapDaemon PRIVATE ${FUEGOTOR_LIB_PATH})
+set(FUEGOI2P_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoI2P)
+target_link_directories(PaymentGateService PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+target_link_directories(SimpleWallet PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+target_link_directories(Daemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+target_link_directories(TestnetDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+target_link_directories(testnet-wallet-cli PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+target_link_directories(SwapDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
 
 target_link_libraries(testnet-wallet-cli PRIVATE
     Wallet
@@ -383,6 +387,8 @@ target_link_libraries(Daemon PRIVATE
     upnpc-static
     BlockchainExplorer
     FuegoMeshtastic
+    FuegoI2P
+    FuegoTor
     ${Boost_LIBRARIES}
     Serialization
     ${JSONCPP_LIBRARIES}

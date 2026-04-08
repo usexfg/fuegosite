@@ -281,7 +281,7 @@ namespace CryptoNote
       INVOKE_HANDLER(COMMAND_HANDSHAKE, &NodeServer::handle_handshake)
       INVOKE_HANDLER(COMMAND_TIMED_SYNC, &NodeServer::handle_timed_sync)
       INVOKE_HANDLER(COMMAND_PING, &NodeServer::handle_ping)
-      INVOKE_HANDLER(COMMAND_ELDERFIER_SIGNATURE, &NodeServer::handle_elderfier_signature)
+
 #ifdef ALLOW_DEBUG_COMMANDS
       INVOKE_HANDLER(COMMAND_REQUEST_STAT_INFO, &NodeServer::handle_get_stat_info)
       INVOKE_HANDLER(COMMAND_REQUEST_NETWORK_STATE, &NodeServer::handle_get_network_state)
@@ -1485,83 +1485,7 @@ namespace CryptoNote
   }
   //-----------------------------------------------------------------------------------
 
-  int NodeServer::handle_elderfier_signature(int command, COMMAND_ELDERFIER_SIGNATURE::request& arg, COMMAND_ELDERFIER_SIGNATURE::response& rsp, P2pConnectionContext& context)
-  {
-    logger(Logging::TRACE) << context << "COMMAND_ELDERFIER_SIGNATURE from EFiD " << (int)arg.elderfier_id
-                           << " at height " << arg.block_height;
 
-    // STEP 1: Validate message format
-    if (arg.version != 1) {
-      logger(Logging::WARNING) << context << "Invalid elderfier signature message version: " << (int)arg.version;
-      return 1;  // Accept but don't process
-    }
-
-    // Check for empty/invalid signature data
-    if (arg.signature == Crypto::Signature{}) {
-      logger(Logging::WARNING) << context << "Empty signature from EFiD " << (int)arg.elderfier_id;
-      return 1;  // Accept but don't process
-    }
-
-    if (arg.merkle_root == Crypto::Hash{}) {
-      logger(Logging::WARNING) << context << "Empty merkle root from EFiD " << (int)arg.elderfier_id;
-      return 1;  // Accept but don't process
-    }
-
-    // STEP 2: Validate block height (not too far in future/past)
-    uint32_t currentHeight = m_payload_handler.getObservedHeight();
-    if (arg.block_height > currentHeight + 10) {  // Allow 10 blocks ahead (clock skew tolerance)
-      logger(Logging::WARNING) << context << "Elderfier signature with future block height: "
-                               << arg.block_height << " vs current " << currentHeight;
-      return 1;  // Accept but don't process
-    }
-
-    // STEP 3: Validate timestamp (not too old/new)
-    uint64_t currentTime = std::time(nullptr);
-    if (arg.timestamp > currentTime + 300 || arg.timestamp + 3600 < currentTime) {  // Allow 5 min ahead, 1 hour old
-      logger(Logging::DEBUGGING) << context << "Elderfier signature with suspicious timestamp: "
-                             << arg.timestamp << " vs current " << currentTime;
-      // Still relay, but flag as potentially suspicious
-    }
-
-    // STEP 4: Cache the signature
-    // Create cached signature entry for CommitmentIndex
-    CachedElderfierSignature cached_sig;
-    cached_sig.merkle_root = arg.merkle_root;
-    cached_sig.signature = arg.signature;
-    cached_sig.elderfier_id = arg.elderfier_id;
-    cached_sig.block_height = arg.block_height;
-    cached_sig.timestamp = arg.timestamp;
-    cached_sig.received_block_height = currentHeight;
-    cached_sig.is_valid = false;  // Mark for validation by CommitmentIndex
-
-    // Forward validated signature to CommitmentIndex via core->blockchain
-    try {
-      // Populate PQ extension fields from P2P message
-      cached_sig.sig_algorithm = arg.sig_algorithm;
-      cached_sig.pq_signature = arg.pq_signature;
-      cached_sig.pq_public_key = arg.pq_pubkey;
-
-      // Cast ICore& to concrete core& to access get_blockchain_storage()
-      auto& concrete_core = static_cast<CryptoNote::core&>(m_payload_handler.get_core());
-      concrete_core.get_blockchain_storage().addSignatureToCache(cached_sig);
-
-      logger(Logging::DEBUGGING) << "Elderfier signature cached: EFiD " << (int)arg.elderfier_id
-                                 << " at height " << arg.block_height
-                                 << " for merkle root " << Common::podToHex(arg.merkle_root);
-
-    } catch (const std::exception& e) {
-      logger(Logging::ERROR) << "Error processing elderfier signature: " << e.what();
-      return 1;  // Accept but don't process on error
-    }
-
-    // STEP 5: Relay to all peers for gossip propagation
-    // This ensures signatures spread across the network even if initial validation fails
-    relay_notify_to_all(command, LevinProtocol::encode(arg), &context.m_connection_id);
-
-    logger(Logging::DEBUGGING) << context << "Elderfier signature relayed for gossip: EFiD " << (int)arg.elderfier_id;
-
-    return 1;  // Success - always return 1 for notify messages
-  }
   //-----------------------------------------------------------------------------------
 
   bool NodeServer::log_peerlist()

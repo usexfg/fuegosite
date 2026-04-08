@@ -163,11 +163,11 @@ RateCheck PriceOracle::validateRate(SwapPair pair, double proposedRate) const {
     // Not enough TWAP data — use seed rate if we have some trades but < minimum
     size_t trades = getTradeCount(pair);
     if (trades == 0) {
-      return RateCheck::NO_DATA;  // true bootstrap, no restriction
+      return RateCheck::RATE_NO_DATA;  // true bootstrap, no restriction
     }
     // Have some trades but < TWAP_MIN_TRADES: use seed as soft reference
     refRate = getSeedRate(pair);
-    if (refRate <= 0.0) return RateCheck::NO_DATA;
+    if (refRate <= 0.0) return RateCheck::RATE_NO_DATA;
   }
 
   // Floor protection: reject if proposed rate gives XFG sellers < 50% of fair value
@@ -205,7 +205,7 @@ const char* PriceOracle::rateCheckToString(RateCheck rc) {
     case RateCheck::OK:           return "OK";
     case RateCheck::BELOW_FLOOR:  return "REJECTED: rate too low (floor protection)";
     case RateCheck::ABOVE_MARKET: return "WARNING: rate significantly above market";
-    case RateCheck::NO_DATA:      return "OK (no price data, bootstrap mode)";
+    case RateCheck::RATE_NO_DATA:      return "OK (no price data, bootstrap mode)";
     default:                      return "UNKNOWN";
   }
 }

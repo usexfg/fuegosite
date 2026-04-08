@@ -11,6 +11,10 @@ Cargo.lock
 *.swp
 *.swo
 *~
+.claude
+.opencode
+.zed
+/usexfg.org
 
 # OS files
 .DS_Store

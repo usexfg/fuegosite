@@ -33,7 +33,6 @@ impl BlockHeader {
 pub enum CommitmentType {
     Heat = 0,
     Cold = 1,
-    ElderfierStaking = 2,
 }
 
 // Mirrors C++ CommitmentEntry (fields relevant to ZK circuit)
