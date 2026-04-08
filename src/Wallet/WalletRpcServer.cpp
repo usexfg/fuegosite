@@ -16,6 +16,7 @@
 // along with Fuego. If not, see <https://www.gnu.org/licenses/>.
 
 #include "WalletRpcServer.h"
+#include "Wallet/WalletGreen.h"
 
 #include <fstream>
 #include <ctime>
@@ -149,7 +150,13 @@ void wallet_rpc_server::processRequest(const CryptoNote::HttpRequest& request, C
       { "optimize", makeMemberMethod(&wallet_rpc_server::on_optimize) },
       { "estimate_fusion"  , makeMemberMethod(&wallet_rpc_server::on_estimate_fusion) },
       { "send_fusion"      , makeMemberMethod(&wallet_rpc_server::on_send_fusion) },
-      { "reset", makeMemberMethod(&wallet_rpc_server::on_reset) }
+      { "reset", makeMemberMethod(&wallet_rpc_server::on_reset) },
+      // Phase 7: CD / COLD wallet RPC bridges
+      { "list_cds",           makeMemberMethod(&wallet_rpc_server::on_list_cds) },
+      { "create_cd",          makeMemberMethod(&wallet_rpc_server::on_create_cd) },
+      { "withdraw_cd",        makeMemberMethod(&wallet_rpc_server::on_withdraw_cd) },
+      { "rollover_cd",        makeMemberMethod(&wallet_rpc_server::on_rollover_cd) },
+      { "estimate_cd_yield",  makeMemberMethod(&wallet_rpc_server::on_estimate_cd_yield) }
     };
 
     auto it = s_methods.find(jsonRequest.getMethod());
@@ -700,6 +707,172 @@ bool wallet_rpc_server::on_get_outputs(const wallet_rpc::COMMAND_RPC_GET_OUTPUTS
 
 bool wallet_rpc_server::on_reset(const wallet_rpc::COMMAND_RPC_RESET::request& req, wallet_rpc::COMMAND_RPC_RESET::response& res) {
   m_wallet.reset();
+  return true;
+}
+
+// ── Phase 7: CD / COLD wallet RPC bridges ────────────────────────────────────
+
+bool wallet_rpc_server::on_list_cds(const wallet_rpc::COMMAND_RPC_LIST_CDS::request& req, wallet_rpc::COMMAND_RPC_LIST_CDS::response& res) {
+  size_t count = m_wallet.getDepositCount();
+  for (size_t i = 0; i < count; ++i) {
+    CryptoNote::Deposit dep;
+    if (!m_wallet.getDeposit(static_cast<CryptoNote::DepositId>(i), dep)) continue;
+
+    wallet_rpc::COMMAND_RPC_LIST_CDS::deposit_entry entry;
+    entry.deposit_id     = static_cast<uint64_t>(i);
+    entry.amount         = dep.amount;
+    entry.term           = dep.term;
+    entry.unlock_height  = dep.unlockHeight;
+    entry.creation_height = dep.height;
+    entry.locked         = dep.locked;
+
+    switch (dep.depositType) {
+      case CryptoNote::Deposit::Type::HEAT:
+        entry.deposit_type = "HEAT"; break;
+      default:
+        entry.deposit_type = "COLD"; break;
+    }
+
+    res.deposits.push_back(std::move(entry));
+  }
+  res.status = WALLET_RPC_STATUS_OK;
+  return true;
+}
+
+bool wallet_rpc_server::on_create_cd(const wallet_rpc::COMMAND_RPC_CREATE_CD::request& req, wallet_rpc::COMMAND_RPC_CREATE_CD::response& res) {
+  try {
+    CryptoNote::WalletGreen* wg = dynamic_cast<CryptoNote::WalletGreen*>(&m_wallet);
+    if (!wg) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "create_cd requires WalletGreen");
+    }
+    if (req.amount == 0) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "amount must be > 0");
+    }
+    if (req.term == 0) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "term must be > 0");
+    }
+
+    std::string txHash;
+    std::string addr = wg->getAddress();
+    wg->createDeposit(req.amount, static_cast<uint64_t>(req.term), addr, addr, txHash);
+
+    // Deposit ID is the new last index after creation
+    size_t depositId = wg->getDepositCount() - 1;
+    CryptoNote::Deposit dep;
+    wg->getDeposit(static_cast<CryptoNote::DepositId>(depositId), dep);
+
+    res.tx_hash       = txHash;
+    res.deposit_id    = static_cast<uint64_t>(depositId);
+    res.unlock_height = dep.unlockHeight;
+    res.status        = WALLET_RPC_STATUS_OK;
+  } catch (const JsonRpc::JsonRpcError&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR, e.what());
+  }
+  return true;
+}
+
+bool wallet_rpc_server::on_withdraw_cd(const wallet_rpc::COMMAND_RPC_WITHDRAW_CD::request& req, wallet_rpc::COMMAND_RPC_WITHDRAW_CD::response& res) {
+  try {
+    CryptoNote::DepositId depId = static_cast<CryptoNote::DepositId>(req.deposit_id);
+    CryptoNote::Deposit dep;
+    if (!m_wallet.getDeposit(depId, dep)) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "Deposit not found");
+    }
+    if (dep.locked) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "Deposit is not yet mature");
+    }
+
+    CryptoNote::TransactionId txId = m_wallet.withdrawDeposits({depId}, 0);
+    CryptoNote::WalletLegacyTransaction txInfo;
+    m_wallet.getTransaction(txId, txInfo);
+    res.tx_hash = Common::podToHex(txInfo.hash);
+    res.status  = WALLET_RPC_STATUS_OK;
+  } catch (const JsonRpc::JsonRpcError&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR, e.what());
+  }
+  return true;
+}
+
+bool wallet_rpc_server::on_rollover_cd(const wallet_rpc::COMMAND_RPC_ROLLOVER_CD::request& req, wallet_rpc::COMMAND_RPC_ROLLOVER_CD::response& res) {
+  try {
+    CryptoNote::WalletGreen* wg = dynamic_cast<CryptoNote::WalletGreen*>(&m_wallet);
+    if (!wg) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "Rollover requires WalletGreen");
+    }
+
+    CryptoNote::DepositId depId = static_cast<CryptoNote::DepositId>(req.deposit_id);
+    CryptoNote::Deposit dep;
+    if (!m_wallet.getDeposit(depId, dep)) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "Deposit not found");
+    }
+    if (dep.locked) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "Deposit is not yet mature");
+    }
+
+    uint32_t newTerm = (req.new_term == 0) ? dep.term : req.new_term;
+    std::string txHash;
+
+    // rolloverDeposit requires CommitmentIndex from the Core layer.
+    // WalletRpcServer does not currently have Core access — this must be called
+    // from a walletd instance that is co-located with the daemon (not remote).
+    // TODO: expose CommitmentIndex via INode interface to remove this limitation.
+    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
+      "rollover_cd requires Core access not yet exposed via INode. "
+      "Use the daemon /rollover_deposit RPC endpoint instead.");
+    (void)wg; (void)newTerm; (void)txHash;
+
+    // Get new deposit info (last created)
+    size_t newDepId = m_wallet.getDepositCount() - 1;
+    CryptoNote::Deposit newDep;
+    m_wallet.getDeposit(static_cast<CryptoNote::DepositId>(newDepId), newDep);
+
+    res.tx_hash   = txHash;
+    res.new_amount = newDep.amount;
+    res.status    = WALLET_RPC_STATUS_OK;
+  } catch (const JsonRpc::JsonRpcError&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR, e.what());
+  }
+  return true;
+}
+
+bool wallet_rpc_server::on_estimate_cd_yield(const wallet_rpc::COMMAND_RPC_ESTIMATE_CD_YIELD::request& req, wallet_rpc::COMMAND_RPC_ESTIMATE_CD_YIELD::response& res) {
+  try {
+    if (req.amount == 0) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "amount must be > 0");
+    }
+
+    uint32_t currentHeight = (req.current_height == 0)
+      ? m_node.getLastLocalBlockHeight()
+      : req.current_height;
+
+    // Delegate to daemon RPC for yield estimation (requires CommitmentIndex access)
+    // Wallet layer proxies through the node's local blockchain height
+    // For a full implementation, Core::calculateCdInterest should be exposed via INode
+    // For now, return a conservative estimate based on height difference
+    uint32_t heightDiff = (currentHeight > req.creation_height)
+      ? (currentHeight - req.creation_height) : 0;
+
+    // Epoch duration constants
+    const uint32_t epochDuration = m_currency.isTestnet()
+      ? static_cast<uint32_t>(CryptoNote::parameters::TESTNET_EPOCH_DURATION_BLOCKS)
+      : static_cast<uint32_t>(CryptoNote::parameters::EPOCH_DURATION_BLOCKS);
+
+    res.effective_epochs = heightDiff / epochDuration;
+    // Interest rate estimate: conservative placeholder (actual rate from CommitmentIndex)
+    // A proper implementation requires INode to expose getCommitmentIndex()
+    res.estimated_interest = 0;  // Will be non-zero once INode exposes CommitmentIndex
+    res.status = WALLET_RPC_STATUS_OK;
+  } catch (const JsonRpc::JsonRpcError&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, e.what());
+  }
   return true;
 }
 

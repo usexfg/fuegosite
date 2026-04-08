@@ -1884,6 +1884,74 @@ struct COMMAND_RPC_GET_TREASURY_INFO {
   };
 };
 
+// Phase 5: Wallet Auto-Rollover + Compound Interest
+
+/** @brief Get deposits that are maturing or will mature within N blocks */
+struct COMMAND_RPC_GET_MATURING_DEPOSITS {
+  struct request {
+    uint32_t current_height = 0;
+    uint32_t maturing_in = 0;  // blocks (0 = already mature)
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(current_height)
+      KV_MEMBER(maturing_in)
+    }
+  };
+
+  struct response {
+    struct deposit_info {
+      uint64_t deposit_id;
+      uint64_t amount;
+      uint32_t unlock_height;
+      uint32_t term_blocks;
+      std::string status;  // "mature" or "maturing_in_N_blocks"
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(deposit_id)
+        KV_MEMBER(amount)
+        KV_MEMBER(unlock_height)
+        KV_MEMBER(term_blocks)
+        KV_MEMBER(status)
+      }
+    };
+
+    std::vector<deposit_info> deposits;
+    std::string status;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(deposits)
+      KV_MEMBER(status)
+    }
+  };
+};
+
+/** @brief Rollover a mature CD to capture compound interest */
+struct COMMAND_RPC_ROLLOVER_DEPOSIT {
+  struct request {
+    uint64_t deposit_id;
+    uint32_t new_term = 0;  // in epochs (0 = same as current)
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(deposit_id)
+      KV_MEMBER(new_term)
+    }
+  };
+
+  struct response {
+    std::string tx_hash;
+    uint64_t new_amount;  // amount + interest
+    uint64_t claimed_interest;
+    std::string status;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(tx_hash)
+      KV_MEMBER(new_amount)
+      KV_MEMBER(claimed_interest)
+      KV_MEMBER(status)
+    }
+  };
+};
+
 /** @brief List all persisted swaps (from SwapDaemon database) */
 struct COMMAND_RPC_LIST_SWAPS {
   struct request { void serialize(ISerializer&) {} };
