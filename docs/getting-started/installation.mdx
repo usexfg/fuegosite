@@ -1,0 +1,92 @@
+---
+title: "Installation"
+description: "Build Fuego from source or run with Docker on Linux, macOS, or Windows."
+keywords: ["install", "build", "docker", "fuego", "xfg"]
+---
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="Linux / macOS">
+    ```bash
+    # Ubuntu / Debian
+    sudo apt-get install -y build-essential cmake libboost-all-dev libssl-dev
+
+    # macOS (Homebrew)
+    brew install cmake boost openssl
+    ```
+  </Tab>
+  <Tab title="Windows">
+    Install [Visual Studio 2019+](https://visualstudio.microsoft.com/) with the C++ workload, then install [CMake](https://cmake.org/download/) and [Boost](https://www.boost.org/users/download/).
+  </Tab>
+</Tabs>
+
+## Build from source
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/usexfg/fuego-suite.git
+    cd fuego-suite
+    ```
+  </Step>
+  <Step title="Configure and build">
+    ```bash
+    mkdir build && cd build
+    cmake ..
+    make -j$(nproc)   # Linux
+    make -j$(sysctl -n hw.ncpu)   # macOS
+    ```
+
+    Binaries are placed in `build/release/src/`.
+  </Step>
+  <Step title="Verify the build">
+    ```bash
+    ./build/release/src/fuegod --version
+    ./build/release/src/simplewallet --version
+    ```
+  </Step>
+</Steps>
+
+## Docker
+
+```bash
+# Run a testnet node
+docker compose -f docker/docker-compose-testnet.yml up -d
+
+# Check logs
+docker compose -f docker/docker-compose-testnet.yml logs -f fuegod
+```
+
+See `docker/README.md` for full Docker configuration options and environment variables.
+
+## Mainnet vs testnet
+
+| | Mainnet | Testnet |
+|--|---------|---------|
+| Default RPC port | 28080 | 28280 |
+| Epoch duration | 900 blocks (~1 day) | 10 blocks (~30 sec) |
+| Flag | (none) | `--testnet` |
+| Data dir | `~/.fuego` | `~/.fuego-testnet` |
+
+<Tip>
+  Start on testnet first. Everything works identically but epochs are faster, making it practical to test CD maturity and interest without waiting days.
+</Tip>
+
+## Run the daemon
+
+```bash
+# Mainnet
+./fuegod --data-dir ~/.fuego
+
+# Testnet
+./fuegod --testnet --data-dir ~/.fuego-testnet
+```
+
+Wait for the daemon to sync before using the wallet. Check sync status:
+
+```bash
+curl -s http://127.0.0.1:28080/get_info | python3 -m json.tool
+```
+
+Look for `"synced": true` in the response.

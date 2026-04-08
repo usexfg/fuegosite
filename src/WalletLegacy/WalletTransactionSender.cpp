@@ -768,8 +768,6 @@ namespace CryptoNote
         } else if (tag == TX_EXTRA_COLD_COMMITMENT) {
           detectedType = Deposit::Type::COLD;
           isColdDeposit = true;
-        } else if (tag == TX_EXTRA_ELDERFIER_DEPOSIT) {
-          detectedType = Deposit::Type::ELDERFIER;
         }
       } else {
         // No wallet-provided commitment — generate one based on deposit term

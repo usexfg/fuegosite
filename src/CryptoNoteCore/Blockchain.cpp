@@ -2912,9 +2912,9 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
         } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
           const auto& cold = boost::get<TransactionExtraColdCommitment>(field);
           totalBankingFees += cold.amount / 1000;
-        } else if (field.type() == typeid(TransactionExtraFuegoCd)) {
-          const auto& ef = boost::get<TransactionExtraFuegoCd>(field);
-          totalBankingFees += ef.amount / 1000;
+        } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
+          const auto& cd = boost::get<TransactionExtraColdCommitment>(field);
+          totalBankingFees += cd.amount / 1000;
         }
       }
     }

@@ -543,5 +543,138 @@ using CryptoNote::ISerializer;
       }
     };
   };
+
+  // ── Phase 7: CD / COLD wallet RPC bridges ─────────────────────────────────
+
+  struct COMMAND_RPC_LIST_CDS {
+    typedef CryptoNote::EMPTY_STRUCT request;
+
+    struct deposit_entry {
+      uint64_t deposit_id;
+      uint64_t amount;
+      uint32_t term;
+      uint64_t unlock_height;
+      uint64_t creation_height;
+      std::string deposit_type;  // "COLD" or "HEAT"
+      bool locked;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(deposit_id)
+        KV_MEMBER(amount)
+        KV_MEMBER(term)
+        KV_MEMBER(unlock_height)
+        KV_MEMBER(creation_height)
+        KV_MEMBER(deposit_type)
+        KV_MEMBER(locked)
+      }
+    };
+
+    struct response {
+      std::vector<deposit_entry> deposits;
+      std::string status;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(deposits)
+        KV_MEMBER(status)
+      }
+    };
+  };
+
+  struct COMMAND_RPC_CREATE_CD {
+    struct request {
+      uint64_t amount;
+      uint32_t term;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(amount)
+        KV_MEMBER(term)
+      }
+    };
+
+    struct response {
+      std::string tx_hash;
+      uint64_t deposit_id;
+      uint64_t unlock_height;
+      std::string status;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(tx_hash)
+        KV_MEMBER(deposit_id)
+        KV_MEMBER(unlock_height)
+        KV_MEMBER(status)
+      }
+    };
+  };
+
+  struct COMMAND_RPC_WITHDRAW_CD {
+    struct request {
+      uint64_t deposit_id;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(deposit_id)
+      }
+    };
+
+    struct response {
+      std::string tx_hash;
+      std::string status;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(tx_hash)
+        KV_MEMBER(status)
+      }
+    };
+  };
+
+  struct COMMAND_RPC_ROLLOVER_CD {
+    struct request {
+      uint64_t deposit_id;
+      uint32_t new_term;  // 0 = same term as original
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(deposit_id)
+        KV_MEMBER(new_term)
+      }
+    };
+
+    struct response {
+      std::string tx_hash;
+      uint64_t new_amount;
+      std::string status;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(tx_hash)
+        KV_MEMBER(new_amount)
+        KV_MEMBER(status)
+      }
+    };
+  };
+
+  struct COMMAND_RPC_ESTIMATE_CD_YIELD {
+    struct request {
+      uint64_t amount;
+      uint32_t creation_height;
+      uint32_t current_height;  // 0 = use current blockchain height
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(amount)
+        KV_MEMBER(creation_height)
+        KV_MEMBER(current_height)
+      }
+    };
+
+    struct response {
+      uint64_t estimated_interest;
+      uint32_t effective_epochs;
+      std::string status;
+
+      void serialize(ISerializer& s) {
+        KV_MEMBER(estimated_interest)
+        KV_MEMBER(effective_epochs)
+        KV_MEMBER(status)
+      }
+    };
+  };
+
 }
 }
