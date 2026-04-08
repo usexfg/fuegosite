@@ -35,6 +35,10 @@
 
 ### In-App (DIGM platform layer, anchored on-chain)
 
+> **Scoping note.** PARA / VOX / CURA / nfVOX / TOP are **in-app tokens**. Their supply models, burn ratios, multiplier curves, and transfer rules are deliberately left **TBD** and are only meaningful *inside the DIGM app*. We are not worrying about external market value, cross-chain representation, or use-functions beyond DIGM.
+>
+> What *is* guaranteed: every state change (mint / burn / transfer / transmutation / award) **settles to Fuego L1 via the merkle anchor** (§10) for correctness, auditability, and legitimacy. The app is the execution layer; Fuego is the truth layer. An app that lies about balances gets caught by the next anchored root.
+
 | Asset | Type | Purpose |
 |-------|------|---------|
 | **PARA** | Earned token | Earned by listening (streaming proofs). Staked on albums as "like pools." Fuel for the entire DIGM economy. |
@@ -124,9 +128,64 @@ Listening ──→ PARA (streaming proofs)
 ## 4. The Listener Platform (RP1/Oasis Vibes)
 
 ### Identity
-- **Aliases** — public leaderboard names, wallet stays private
-- **Profiles** — public stats, private identity
-- **Listening history** — opt-in visibility
+- **Wallet = user.** There is no separate "alias account" layer. Your Fuego wallet *is* your DIGM identity. Everything — PARA balance, VOX, CURA, staked positions, curator reputation, nfVOX trophies, leaderboard history, streak counters — accrues to the wallet.
+- **Display name** is a cheap changeable label attached to the wallet (for leaderboards and social surfaces). Changing your display name does not reset your history.
+- **Wallet stays private.** The underlying view/spend keys are never exposed; what the public sees is a derived commitment. Same privacy guarantees as any Fuego transaction.
+- **Listening history** — opt-in visibility.
+
+### Sybil Defense: Wallet = User, and using the same wallet is the path of least resistance (decided)
+
+**Goal:** don't try to *detect* sybils. Make them **unattractive to create** by ensuring every incentive — economic, social, UX — points toward staying on one wallet. A second wallet should feel like throwing away progress, not unlocking opportunity.
+
+**Core principle:**
+
+> Farming is prevented not by math or cryptography but by the fact that starting a second wallet is strictly worse than continuing to use your first one. The single-wallet path is the easy path. It is also the *only* path that accumulates value. Any deviation is friction.
+
+**Mechanisms (all UX + state accrual, no sybil math required as primary defense):**
+
+1. **Gate is checked on the wallet directly** (§9). ≥ 0.0008 XFG or ≥ 1M HEAT on the wallet itself. No separate alias credential, no binding, no registration — the wallet either passes or it doesn't.
+2. **Everything non-transferable is soulbound to the wallet.** PARA earning history, curator reputation, play streaks, nfVOX trophies held, TOP reigns won, leaderboard rank history, wallet-age ramp — none of it can be transferred, merged, or re-created. Starting a new wallet means starting all of this from zero.
+3. **Wallet-age ramp** (formerly "alias-age ramp"). New wallets start with zero weight for rewards, leaderboard placement, and curation influence. They ramp to full weight over the first N epochs of consistent activity. Burst-farming N new wallets the day before an epoch close buys nothing — they're all still at zero.
+4. **No new-user bonus, ever.** No welcome PARA, no signup airdrop, no "first week" boost. New wallets earn from a cold start. The *only* way to get ahead is time on the current wallet. This is a hard rule: any growth feature that privileges new wallets is rejected by design.
+5. **Sunk-cost accumulation.** The longer you use a wallet, the more of the following you accumulate, all of which are lost on switch:
+   - PARA earning streaks (consecutive days of valid listening → multiplier on daily reward cap)
+   - Curator track record (successful CURA picks raise your visibility, failed picks don't)
+   - Album-stake position timestamps (early-staker multiplier on dynasty drains — §4a)
+   - nfVOX trophies and reign history (your personal Hall of Fame)
+   - Leaderboard rank (decays slowly on inactivity, zero-reset on wallet switch)
+   - Curator slot reputation (how your playlists rank in discovery)
+6. **UX defaults.** The app has **one** wallet by default. Switching or adding a wallet is a hidden power-user action, not a surfaced flow. No "add profile" button on the home screen. No multi-wallet switcher in the nav. You can of course run another wallet — we're privacy-first and we won't lock you out — but the path isn't paved.
+7. **Rewards claim directly to the same wallet.** No "choose a destination." No "withdraw to a different wallet." Earned PARA, transmuted VOX, CURA mints, album-purchase royalties, and artist bounties all settle to the wallet that earned them.
+8. **Cross-device is same-wallet, not new-wallet.** If you want DIGM on your phone AND desktop, you import the same wallet (seed or key export). This is the explicit recommended flow so you don't lose your history. Importing is easy; creating a second wallet is not.
+
+**What this explicitly does not try to do:**
+- ❌ Detect that wallet A and wallet B are the same human (we don't know and can't know — this is a privacy chain)
+- ❌ Penalize users for running a second wallet (they can; it just won't be worth anything)
+- ❌ Use cryptographic sybil gates (we already have the HEAT/XFG gate — that's it)
+- ❌ Require any real-world identity verification
+
+**Why this is enough:**
+
+A farmer with capital for 100 wallets gains nothing that a patient single-wallet user doesn't get for free. All 100 wallets start at wallet-age zero, all 100 need separate gate stakes, all 100 have separately-earning streak multipliers starting at 1×, none of them share reputation or nfVOX or rank. The farmer pays 100× the capital to get *worse* outcomes than a single user who's been active for a month. The incentive gradient points *against* sybils without anyone having to detect them.
+
+### Research: prior art for "wallet = user" sunk-cost identity
+
+This is the **soulbound-token / non-transferable-reputation** design space. Worth surveying before finalizing:
+
+- Vitalik / Weyl / Ohlhaver, *Decentralized Society: Finding Web3's Soul* (SBT paper) — foundational framing
+- POAP — proof-of-attendance NFTs as lightweight sunk-cost badges
+- Gitcoin Passport — stamp-based wallet reputation aggregation
+- Lens Protocol — portable social graph bound to one address
+- Farcaster — wallet-bound handles with recovery
+- Audius user accounts — how they tie listener history to a single identity
+- Ethereum Name Service — wallet-bound persistent names
+- ERC-5114 (soulbound badges) and ERC-6551 (token-bound accounts) — current SBT token standards
+
+The research question is not "should we do this" (decided — yes) but "which primitives from this space are worth stealing for DIGM's specific cases" (wallet-age ramp, streak multipliers, reputation accrual).
+
+### Quadratic cluster-decay (deferred research fallback, not primary)
+
+The earlier quadratic cluster-decay math is kept in the research drawer as a fallback *if* the sunk-cost approach fails to produce enough sybil friction in practice. It would layer on top: if two wallets show indistinguishable fetch/stake/behavior fingerprints, their combined rewards get the `1/√M` haircut. Privacy-preserving version runs on anchored commitments, not raw logs. Not a primary mechanism; only activated if real-world farming emerges.
 
 ### Leaderboards
 - **Listener rankings** — by VOX earned, curator accuracy, streaks
@@ -229,26 +288,117 @@ Two things are cleanly separated:
 
 **Decision:** epoch = **~5 days = 900 blocks** (same cadence as the Fuego swap-fee epoch). Every 900 blocks the #1 album is determined, transmutation fires on the winning pool, and leaderboards close out.
 
-### The "stays #1" problem (still open — see §11)
+### The "stays #1" problem — direction: **dynasty + ride-the-wave** (draft, §11 open)
 
-What happens if an album wins epoch N and is still the top pool at the end of epoch N+1? And what if it drops to #2 for one epoch then comes back to #1? Possible directions to pick from:
+**Direction:** Pool does **not fully drain until the epoch *after* dethrone.** Album pool stays open to new stakers during the reign. Both new stakers and pre-#1 believers have distinct risk/reward profiles.
 
-- **A. Drain-and-reset every win.** Each epoch, the winning pool fully drains (PARA→VOX, artist gets the raw PARA lump, nfVOX minted). If the same album wins the next epoch, it means listeners re-staked — so it's earned again. Downside: artist gets repeated nfVOX; TOP thrashing.
-- **B. Drain-and-reset, but nfVOX only on first #1.** Same as A, but nfVOX is one-per-album-lifetime. Subsequent wins give artist the raw PARA + keep TOP but no extra nfVOX.
-- **C. Partial drain.** Only stake older than X blocks drains; fresh stake rolls forward. Lets believers "leave some in" without losing position.
-- **D. Dynasty mode.** First win drains; while the album holds #1 across consecutive epochs, no drain fires (artist earns a per-epoch "reign stipend" instead). First epoch the album is dethroned, a final drain fires on the position as of the dethrone block. Comeback from #2 → #1 restarts a new dynasty.
+```
+TIMELINE OF A DYNASTY
 
-My gut says **D (dynasty)** is the most interesting and best matches "epoch winners are not to be forgotten." Tell me which you want and I'll spec it.
+Epoch N-1:  album rising, people staking normally  ─── pre-#1 stake (full power)
+Epoch N:    album hits #1                          ─┐
+Epoch N+1:  album still #1 (reign epoch 2)          │ reign in progress
+Epoch N+2:  album still #1 (reign epoch 3)          │ pool STAYS OPEN
+Epoch N+3:  album still #1 (reign epoch 4)         ─┘
+Epoch N+4:  album drops to #2   ←── DETHRONE
+Epoch N+5:  delayed drain fires ←── final transmutation on the position snapshot
+```
+
+#### Three kinds of stake in a reigning pool
+
+| Stake type | Weight while reigning | On dethrone (delayed drain) |
+|-----------|------------------------|------------------------------|
+| **Pre-#1 stake (default)** — staked before the album first hit #1 | Full power (1×) | Transmutes at standard time-weighted VOX rate |
+| **Pre-#1 stake, "riding the wave"** (opt-in at dethrone N → N+1 boundary) | Full power (1×) + compounding reign-bonus multiplier for each additional epoch of reign | If album is still #1 when owner cashes out: full base + reign-bonus. If still riding when album dethrones: **forfeit all reign-bonus**, keep base (or a haircut on base — TBD) |
+| **Late-entry stake** — staked during the reign | Half power (0.5×) on eventual transmutation | Transmutes at 0.5× the standard time-weighted VOX rate |
+
+#### Artist "reign tax" on late-entry stakes
+
+During the reign, the artist creams a configurable percentage off the top of any new PARA staked into the pool (e.g. 15-25%, TBD). This models "the #1 spot is premium real estate — pay up to stake here."
+
+- Applied instantly at stake time (not at drain time) → artist PARA balance grows continuously while reigning
+- Does **not** apply to pre-#1 stakes or to their ride-the-wave bonus
+- In effect: pre-#1 believers earned their discount by being early; late stakers pay the artist for the privilege of staking on a proven hit
+
+#### "Ride the wave" opt-in mechanics (sketch, needs numbers)
+
+At the moment a pool first hits #1 (epoch N close), every pre-#1 staker has a decision point:
+- **Cash out at delayed drain.** Position earmarked to drain at dethrone using the standard time-weighted formula. Safe, capped upside.
+- **Ride the wave.** Position stays in the pool. Each *additional* epoch the album holds #1 multiplies the position's effective VOX conversion rate by a factor `r > 1` (e.g. `r = 1.25`), compounding. A rider can cash out between epochs *while still reigning* to lock in the accrued bonus.
+- **Forfeiture rule.** If an active rider's pool is dethroned before they cash out, the reign-bonus portion evaporates at delayed drain; base position converts at a haircut (e.g. 0.8× standard rate) to punish greed.
+
+Example: a 1000 PARA pre-#1 stake riding through 3 extra reign epochs, then dethroned while still riding:
+- Base would have been 1000 × time-weight → say 1500 VOX at dethrone
+- Reign bonus after 3 epochs at r=1.25: 1500 × 1.25³ = ~2930 VOX → **forfeited**
+- Haircut on base: 1500 × 0.8 = 1200 VOX actually received
+- Moral: cash out before dethrone, or lose the bonus and take a base haircut
+
+Same position, but cashed out after 2 reign epochs (while still #1):
+- 1500 × 1.25² = ~2345 VOX → paid out at cashout, locked in
+
+#### Why this works
+
+- **Dynasty preserved:** an album can reign for multiple epochs without the artist losing TOP or the pool thrashing.
+- **Pool stays live:** late-entry stakers can still signal belief, but at a discount so they don't instantly dilute early believers.
+- **Artist captures hype:** late-entry reign-tax gives the artist a real incentive to keep making content that holds #1.
+- **Risk/reward for believers:** ride-the-wave turns the pool into a "will they stay #1?" prediction market. Correct riders get compounding rewards; wrong riders who stayed too long get punished.
+- **No drain thrashing:** the drain is always *delayed until after dethrone*, so a same-epoch wobble (e.g. briefly #2 in-epoch, back to #1 by close) doesn't trigger anything.
+
+#### Open sub-questions (see §11)
+- Is the reign-bonus factor `r` fixed, or does it scale by epochs (e.g. `r_n = 1 + 0.25 × sqrt(n)`)?
+- Exact forfeiture rule on dethrone: full base, haircut base, or tiered haircut by reign length?
+- Can a rider *add* PARA mid-reign to their riding position at full power, or only cash out?
+- Does the artist's reign-tax apply per-epoch (continuous) or only on stake-in (one-shot)?
+- Dethrone → immediate return to #1 next epoch: does the dynasty resume, or start fresh? My lean: **fresh** — once you drop, the dynasty is over; comeback is a new reign.
+- What happens if two albums tie at #1 at an epoch boundary?
 
 ### What counts as a listen?
 
-**Decision (rough):** Listener side runs a **per-second** listen proof. A listen is valid when all of these hold:
-- Stream is actually being decoded (per-second audio-frame heartbeat to local node)
-- Network volume is consistent with an Opus 96 kbps stream (chunk fetch cadence matches decode cadence)
-- Listener's **not-a-bot score** is above threshold (scored locally on interaction signals + longitudinally per alias)
-- The serving peer co-signs a per-minute listen receipt (listener↔seeder receipt pair, settled in the merkle anchor)
+**Decision:** Without hardware attestation (`.digm` Secure Enclave path is shelved), there is **no external cryptographic witness** to a listen. The listener's own full node self-attests based on runtime signals from an actually-running audio pipeline, bounded by sybil cost and statistical audit.
 
-Exact formula, scoring weights, and on-chain vs in-merkle settlement are §11 open questions.
+**Replays count.** Playing the same track again — whether fetched fresh or served from local cache — counts exactly the same as any other listen. There is no penalty for replays and no "must have just fetched it" requirement. A real user replays their favorite track; the system must reward that normally.
+
+A listen is valid when **all** of these runtime signals hold:
+
+1. **Player is actually running** — the app's audio pipeline is alive and attached to the output device (not muted, not killed, not running headless-in-background with no output sink).
+2. **Decoder is actively producing frames** — Opus (Symphonia) is decompressing compressed chunks into PCM frames at the expected cadence. This is the "decrypt" check: not cryptographic decryption (ParaDio singles are served unencrypted, §7), but the compressed → PCM transform, which a no-op bot would have to actually emulate to fake. Measured as a per-second frame-hash heartbeat from the decoder into the local node.
+3. **Audio output above threshold** — PCM RMS amplitude is above a noise-floor threshold over the window. Can't collect rewards on a muted / silent / zero-amplitude stream.
+4. **Not-a-bot score above threshold** — scored locally from interaction signals + longitudinal per-alias behavior (skip/dwell distributions, diurnal patterns, etc.).
+5. **Within per-alias rate caps** — a per-alias PARA/day ceiling means even a perfect faker has a hard upper bound.
+6. **Alias passes the gate** (≥ 0.0008 XFG or ≥ 1M HEAT, §9) — the actual cost of running a fake listener.
+7. **Survives statistical audit at the next merkle anchor** — anchored roots are periodically scanned for outlier aliases. Outliers get PARA clawed back.
+
+**Signals we are *not* using:**
+- ❌ **Seeder co-signing** (seeders witness fetches, not listens; earn zero PARA; not part of the proof)
+- ❌ **Chunk-fetch trail vs claim consistency** (would break legitimate replays from cache — removed)
+- ❌ **Hardware Secure Enclave attestation** (shelved with `.digm`)
+
+### Research directions for stronger streaming proofs (§11 open)
+
+The current model is "self-attested runtime signals bounded by sybil cost." It's honest about its limits but it's a soft check. Harder proofs are possible — explicitly **research items, not decisions**:
+
+- **Per-session content encryption.** ParaDio could serve each chunk encrypted under a short-lived per-session key derived from a recent Fuego block hash × listener destination. The decrypt operation becomes a real cryptographic gate: you can't "listen" to a timeslot that hasn't happened yet, and you can't decrypt another listener's feed. Cost: ~every chunk has to be stream-encrypted on the serving side, and cache reuse is complicated (a replay from cache needs to also re-derive the key for that replay's timeslot). Trade-off against the "replays count freely" rule.
+- **Decoder-bound nonces.** A proof-of-decode scheme where each decoded frame contributes to a nonce chain that's infeasible to construct without actually running the decoder on the real bytes. Feasible for Opus, costly to implement.
+- **Verifiable delay on receipts.** Listener-side VDF over the track duration, ensuring claims are rate-limited by real wall clock even in the absence of a network witness.
+- **TEE attestation (Intel SGX / ARM TrustZone / Apple Secure Enclave) as an opt-in premium path.** Listeners who *do* have a TEE-capable device can submit hardware-attested listen proofs for a bonus reward or a higher rate cap. Listeners without TEE still participate via the soft path. Reintroduces the thing we shelved, but only as an optional upgrade, not a requirement.
+- **Watermarking / acoustic fingerprinting.** Cheap to fake in software but could raise the bar for the laziest bots.
+- **Research prior art:** Audius proof-of-listen, Spotify's stream-counting model, Basic Attention Token's proof-of-engagement, etc. Likely all softer than what we're doing here, but worth cataloging before committing.
+
+None of these are decisions. The runtime-signals model stands until a research pass says otherwise.
+
+### Seeders do not earn PARA (decision)
+
+**Decision:** seeders earn **zero** PARA. No seeding reward system, no per-chunk bounty.
+
+**Why:**
+- The whole architecture assumes ambient seeding — listeners already have the chunks they bought or staked on, so seeding is a byproduct of normal usage. There is no natural shortage to subsidize.
+- Paying seeders creates a direct attack surface for the listen-receipt co-sign game: a paid seeder has an incentive to collude with a listener and falsify receipts to farm PARA. Keeping seeders economically neutral keeps the receipt co-sign honest (a seeder has nothing to gain by lying).
+- Co-signing a receipt is cheap and happens on data the seeder is serving anyway.
+
+**Bootstrapping new / niche content** (the only case where ambient seeding isn't enough):
+- **Artist bounty** (primary): artist attaches a small XFG bounty to an album or single on publish; the bounty is paid pro-rata to nodes that demonstrably served the chunks (proof via pulled listener receipts). Artist chooses whether to fund it — popular artists can skip it, unknown artists bootstrap with it.
+- **Treasury bounty** (fallback): the Fuego treasury (post-EFier fee pool reassignment — see §11) can top up bounties for content flagged as under-seeded. This is the *only* place the DIGM layer touches any on-chain pool, and even here it's a Fuego treasury call unrelated to CDs.
+- **Neither bounty pays PARA.** Bounties are always in XFG. PARA remains exclusively a listener-earning token.
 
 ---
 
@@ -522,14 +672,36 @@ First launch on a fresh install: longer (~initial Fuego sync via I2P peers, time
 - xfg-stark-cold-starks/ codebase (preserved, deprioritized)
 - DIGM-origins `.digm` audio container format + hardware-Secure-Enclave proof-of-recording (the *format* is shelved; PARA economics, OGG-Opus, FLAC, curator share, chunk size, and other prior decisions are inherited)
 
-### HEAT clarification
+### HEAT clarification (updated)
 
-HEAT is **still a concept** — it just isn't an L2 ERC-20 anymore. With L2/STARKs/COLD shelved, HEAT survives as:
+HEAT is both a **unit label** and, optionally, a **cross-chain token** that can live on Ethereum (ERC-20) and/or Solana (SPL token).
 
-- **A unit/denomination label for very small amounts of XFG**, useful in app UI ("track price: 250,000 HEAT" reads better than tiny XFG decimals).
-- **A possible rebranding for the smallest ParaDio reward unit** so listeners "earn HEAT" for streams (more visceral than "earn 0.0000xxx PARA").
+**Two things HEAT does:**
 
-HEAT no longer implies a burn → ERC-20 mint flow. There is no HEAT contract on Arbitrum. There is no HEAT bridge. Anywhere you see "HEAT" in DIGM UI, read it as a unit label.
+1. **Unit / denomination label** on Fuego. Very small XFG amounts display as HEAT in the UI ("track price: 250,000 HEAT" reads better than tiny XFG decimals). No new on-chain asset is required for this use.
+2. **Cross-chain token** (ERC-20 on Ethereum, SPL on Solana). Non-XFG users can acquire HEAT directly on their chain of choice and satisfy the DIGM premium / reward-eligibility gate without ever touching XFG. Bridging semantics (mint/burn vs wrapped) are §11 open.
+
+**Premium / reward-eligibility gate — dual path:**
+
+A user is "premium" (eligible to earn ParaDio PARA, hold aliases, cast hashrate / burn votes, etc.) when they satisfy **either** of these:
+
+| Path | Minimum |
+|------|---------|
+| **A. XFG holder** | ≥ **0.0008 XFG** held in the app wallet |
+| **B. HEAT token holder** | ≥ **1,000,000 HEAT** held on any supported chain (ERC-20 or SPL) |
+
+- Both gates are independent — no forced conversion, no fixed XFG↔HEAT ratio.
+- XFG path is the tiny, cheap, native path. 0.0008 XFG is essentially dust-level — it exists mainly so any real Fuego user is automatically eligible.
+- HEAT path is the bigger cross-chain ask. It's how non-Fuego users (Ethereum / Solana natives) can opt into DIGM without going through a swap first. The 1M HEAT threshold is the sybil cost on that path.
+- A user can prove either gate privately; the DIGM app verifies the balance claim and issues an eligibility credential against the merkle anchor.
+
+What HEAT does **not** do anymore (killed with the L2 pivot):
+- No HEAT-from-burned-XFG minting flow
+- No HEAT bridge to Arbitrum for L3 gas
+- No relationship to COLD / C0DL3
+- No STARK proofs
+
+HEAT is just a unit label on Fuego and an optional cross-chain access token — nothing more.
 
 ---
 
@@ -600,44 +772,58 @@ DIGM app tracks all balances in real-time (fast, flexible)
 ### Decisions made in this revision
 - **CURA mint = burn VOX only.** DIGM-origins' "burn PARA → CURA" is overridden. VOX is the only path to CURA.
 - **PARA reward split** = listener / artist (curator skims 30% of each share if listened via curator playlist). No Elderfier / LP slice — those DIGM-origins buckets are gone with the rest of the L2/EFier stack.
-- **HEAT is still viable** as a concept / denomination / possible sybil-cost gate. Specific use (unit label vs min-balance check vs both) still TBD.
+- **HEAT is both a unit label (on Fuego) and an optional cross-chain token (ERC-20 + SPL).** Premium / reward gate is dual-path: ≥ 0.0008 XFG **or** ≥ 1,000,000 HEAT. No forced conversion between the two.
+- **Seeders earn zero PARA.** Bootstrapping under-seeded content is via artist XFG bounty (primary) or Fuego treasury bounty (fallback). Both paid in XFG, never PARA.
 - **CD fee pool is completely separate from DIGM.** DIGM does not feed or consume CD yield. They share XFG as a medium only.
 - **Epoch length = ~5 days = 900 blocks**, aligned with the Fuego swap-fee epoch.
 
-### Still open: "stays #1" semantics
-Pick one of A / B / C / D from §4a, or propose a variant:
-- (A) drain-and-reset every win
-- (B) drain-and-reset, nfVOX only on first win
-- (C) partial drain (stake older than X drains, fresh stake rolls)
-- (D) **dynasty mode** — no drain while the reign continues, single drain on dethrone *(my recommendation)*
-- Related: if the album is dethroned and comes back to #1, does that start a new dynasty or resume the old one?
-- Related: can listeners leave "persistent belief" PARA in a pool across drains without losing it? (e.g. a small reserved percentage that never transmutes)
+### Dynasty + ride-the-wave — direction locked, numbers parked
+See §4a. Direction is chosen (delayed drain, open pool during reign, half-power late-entry stakes, artist reign-tax, opt-in ride-the-wave with forfeiture). All numeric knobs are parked as in-app TBD along with VOX/CURA above — they need playtest data, not a priori guesses.
 
-### Epoch & Timing (still open)
-- How long does an album's staking pool stay open? Indefinite until win or withdraw?
-- Does TOP transfer instantly when dethroned, or at epoch boundary (every 900 blocks)?
+### Epoch & timing edges (still open, mostly in-app)
+- How long does a non-winning staking pool stay open? Indefinite until win or withdraw?
+- Does TOP transfer instantly at dethrone, or at the next epoch boundary (every 900 blocks)?
 - Grace period for staking after album publish? (prevent sniping at epoch close)
 
-### VOX / CURA / nfVOX / TOP — net new tokens, no prior docs
+### VOX / CURA / nfVOX / TOP — parked as in-app TBD
+These are in-app tokens. Supply / burn ratios / multiplier curves / transferability are **deliberately deferred** until the DIGM app is further along. They settle to Fuego L1 via the merkle anchor (§10) so any model we pick later is auditable. Open items, not blocking:
 - VOX time-multiplier curve on transmutation (linear? exponential? step function?)
 - VOX → CURA burn ratio
-- Is VOX P2P-tradable or only burnable for CURA + spendable for cosmetics?
-- nfVOX: any on-chain anchor (it's a permanent trophy) or pure app state?
-- TOP transfer mechanics — automatic on dethrone, or signed by previous holder?
+- VOX supply model (purely event-driven from #1 transmutations, or any cap?)
+- Is VOX P2P-tradable in-app, or only burnable-for-CURA / spendable-on-cosmetics?
+- nfVOX: pure app state, or does the award event also anchor a separate identifier on L1?
+- TOP transfer mechanics — automatic on dethrone, or signed handoff?
+- Dynasty-mode numeric knobs (late-entry weight, reign-tax rate, reign-bonus factor `r`, forfeiture rule, add-to-riding-position rule, dethrone-then-return behavior, tie-breaker) — same bucket, parked until app is real enough to playtest
 
-### Streaming proof / anti-bot (direction decided, numbers open)
-Decided: per-second local decode heartbeat + volume/bandwidth consistency check + not-a-bot score + seeder-co-signed per-minute receipts. Still open:
-- Scoring weights for the not-a-bot score (interaction signals, longitudinal per-alias behavior, etc.)
-- How often seeder↔listener receipts settle into the merkle anchor
-- Does a seeder get rewarded for co-signing receipts? (if yes, seeders have an incentive to lie for the listener — need game theory)
-- HEAT minimum-balance gate (DIGM-origins style, 1M HEAT min): keep as a cheap sybil cost, raise, lower, or drop?
-- Should CD balance or XFG balance act as an additional sybil cost on listener aliases?
+### Streaming proof / anti-bot (direction decided, numbers + research open)
+Decided: listener's own full node self-attests on runtime signals (player running + decoder producing frames + audio amplitude above threshold + not-a-bot score), bounded by per-alias PARA/day rate caps, the dual HEAT/XFG gate, quadratic alias cluster-decay, and statistical audit at each merkle anchor. **Replays count.** **No seeder co-signing, no fetch-trail vs claim check, no hardware attestation required.** Bootstrapping under-seeded content is handled by artist XFG bounties, with Fuego treasury bounties as a fallback. **Premium / reward gate** is dual-path: ≥ 0.0008 XFG *or* ≥ 1,000,000 HEAT (ERC-20 or SPL). Still open:
+- Scoring weights and threshold for the not-a-bot score
+- PCM amplitude threshold for the "audio above threshold" check (and window size)
+- Per-alias PARA/day rate cap number
+- Statistical audit model at the anchor — what signals define "outlier," what's the clawback mechanism, how many epochs back can be revised?
+- Exact artist-bounty payout rule: pro-rata by bytes served? by distinct destinations served? time-weighted?
+- Floor / ceiling on artist bounty amounts?
+- Treasury bounty trigger: automatic metric or governance?
 
-### Alias / leaderboard system (no prior decisions)
-- Alias registration: unique? changeable? cost VOX?
-- Leaderboard categories and ranking formulas
-- Sybil resistance for aliases (CD-locked deposit per alias?)
-- Public profile fields: which stats are public-by-default vs opt-in?
+### Streaming proof — research items (not decisions)
+Look into whether any of these should be adopted beyond the runtime-signals baseline:
+- Per-session content encryption with block-hash-derived keys (harder gate, complicates replay-from-cache)
+- Decoder-bound nonce chains (proof-of-decode)
+- Verifiable delay on listen claims (wall-clock rate limiting)
+- Opt-in TEE attestation (SGX / TrustZone / Secure Enclave) as a premium path with bonus rate cap
+- Watermarking / acoustic fingerprinting for the laziest bots
+- Prior-art survey: Audius proof-of-listen, Spotify, BAT, others
+
+### Identity / sybil (direction flipped — wallet = user)
+Decided (see §4 "Sybil Defense: Wallet = User"): no separate alias layer. The wallet *is* the identity. Sybil resistance comes from sunk-cost state accrual (wallet-age ramp, streaks, reputation, nfVOX, rank history — all soulbound) plus the HEAT/XFG gate on the wallet itself, plus the UX default of "one wallet, and every cross-device path is import not create." No new-user bonus ever. Quadratic cluster-decay math is parked as a research fallback, not primary. Edges still open:
+- Wallet-age ramp length (first N epochs) and ramp curve (step / linear / smoothstep)
+- Streak multiplier curve — how much does a 30-day streak beat day 1?
+- Does streak reset on a single missed day or decay gracefully?
+- Display-name namespace — first-come-first-serve? changeable? squatting prevention?
+- Public profile field defaults (which stats are public-by-default vs opt-in)
+- Leaderboard categories final list (current draft: listener rankings, PARA LP leaders, album charts, curator rankings, epoch Hall of Fame)
+- Research survey of the soulbound-token / sunk-cost-identity space (SBT paper, POAP, Gitcoin Passport, Lens, Farcaster, ENS, ERC-5114, ERC-6551) — which primitives to steal
+- Does cross-device wallet import need any "recovery" flow (seed only, or additional recovery options)?
 
 ### Platform & UX
 - What customizations / add-ons can VOX buy? (themes, badges, profile flair, radio priority?)
@@ -645,8 +831,15 @@ Decided: per-second local decode heartbeat + volume/bandwidth consistency check 
 - Paradio queue: hashrate-vote weight vs VOX-burn weight? Any algorithmic baseline?
 - Should hashrate voting be 1-miner-1-vote or weighted by hashrate?
 
+### HEAT cross-chain token
+- Issuance model: native mint on each chain (independent supplies), or single canonical chain + wrapped bridges?
+- Which chain is canonical — Ethereum or Solana? Or fully independent per chain?
+- Total supply / schedule — fixed cap? issuance tied to anything on the Fuego side?
+- How does the DIGM app verify a HEAT balance claim without trusting the user's wallet? (light client? signed message against a recent block header?)
+- Does holding HEAT unlock anything beyond the premium gate, or is the gate its only utility?
+
 ### Integration with Fuego Core
-- CD fee pool split now that Elderfiers are gone: (a) 90/10 CD/Treasury, (b) 85/15 CD/Treasury, (c) keep 80/10/10 and reassign the 10% EF slice to something else **unrelated to DIGM** (dev fund? burn?). *Note: DIGM is explicitly NOT in scope for the CD fee pool — this is a pure Fuego-core question.*
+- CD fee pool split now that Elderfiers are gone: (a) 90/10 CD/Treasury, (b) 85/15 CD/Treasury, (c) keep 80/10/10 and reassign the 10% EF slice to something else **unrelated to DIGM** (dev fund? burn? artist-bounty top-up for under-seeded content?). *Note: DIGM is explicitly NOT in scope for the CD fee pool — this is a pure Fuego-core question, though treasury bounties for under-seeded content are one possible home for the reassigned slice.*
 - DIGM colored coin tx_extra tag format (transfer rules, 100K mint, hosting-rights enforcement)
 - Merkle anchor tx_extra tag (next available after 0xD5 — pick a value)
 - Authentication for the merkle root publisher tx — dedicated wallet? threshold of DIGM-coin holders?
