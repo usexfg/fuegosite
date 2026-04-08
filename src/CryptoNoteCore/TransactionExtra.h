@@ -216,8 +216,7 @@ DepositCommitmentKeys deriveCommitmentKeys(const std::array<uint8_t, 32>& deposi
 enum class DepositType : uint8_t {
   COLD      = 0x01,  // COLD CD deposit — withdrawable after term
   HEAT      = 0x02,  // HEAT burn — permanent, key discarded
-  ELDERFIER = 0x03,  // Elderfier stake — review window on unstake
-  YIELD     = 0x04,  // Yield / CIA deposit
+  YIELD     = 0x03,  // Yield / CIA deposit
 };
 
 // Fixed-size plaintext payload encrypted under the wallet's view key.
