@@ -299,8 +299,7 @@ namespace CryptoNote
                                                                                                                                                                 m_pendingBalance(0),
                                                                                                                                                                 m_lockedDepositBalance(0),
                                                                                                                                                                 m_unlockedDepositBalance(0),
-                                                                                                                                                                m_transactionSoftLockTime(transactionSoftLockTime),
-                                                                                                                                                                m_eldernodeIndexManager(nullptr)
+                                                                                                                                                                m_transactionSoftLockTime(transactionSoftLockTime)
   {
     m_upperTransactionSizeLimit = m_currency.transactionMaxSize();
     m_readyEvent.set();
@@ -588,7 +587,7 @@ namespace CryptoNote
       return false;
     }
 
-    // Only COLD deposits can be rolled over (not HEAT/ELDERFIER)
+    // Only COLD deposits can be rolled over (not HEAT)
     if (deposit.depositType != Deposit::Type::COLD) {
       m_logger(ERROR) << "Rollover failed: only COLD deposits can be rolled over";
       return false;
@@ -5117,11 +5116,6 @@ namespace CryptoNote
       result.push_back(pair.second);
     }
     return result;
-  }
-
-  void WalletGreen::setEldernodeIndexManager(IEldernodeIndexManager* eldernodeIndexManager) {
-    m_eldernodeIndexManager = eldernodeIndexManager;
-    m_logger(DEBUGGING, BRIGHT_GREEN) << "EldernodeIndexManager set";
   }
 
 } //namespace CryptoNote

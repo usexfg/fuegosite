@@ -132,22 +132,6 @@ namespace CryptoNote
         const uint64_t TEST_AMOUNT_TIER_2 =   80000000;  // 8 TEST (80,000,000 atomic units)
         const uint64_t TEST_AMOUNT_TIER_3 =  800000000;  // 80 TEST (800,000,000 atomic units)
 
- 	    // ELDERFIER constants
-        // Ceremony: 5 deposits per tier × 4 tiers = 20 deposits, seeds ring pool at all amounts
-        const uint32_t ELDERKING_DEPOSITS_PER_TIER = 5;
-        const uint32_t ELDERKING_TOTAL_DEPOSITS = ELDERKING_DEPOSITS_PER_TIER * 4;  // 20 deposits
-        const uint64_t ELDERKING_CEREMONY_AMOUNT =   // 4,444 XFG total
-            ELDERKING_DEPOSITS_PER_TIER * (AMOUNT_TIER_0 + AMOUNT_TIER_1 + AMOUNT_TIER_2 + AMOUNT_TIER_3);
-        const uint32_t DEPOSIT_TERM_ELDERFIER_STAKING = 8;  // 0xEF deposits: term=8-block minimum, then unstakeable on demand, 1000-block review
-        const uint32_t ELDERFIER_STAKING_REVIEW_WINDOW = 1000;  // 1000 blocks (~5.5 days) for review before unstaking completes
-        // TESTIFIER - TESTNET Elderiers
-        const uint32_t TESTIFIER_DEPOSITS_PER_TIER = 5;
-        const uint32_t TESTIFIER_TOTAL_DEPOSITS = TESTIFIER_DEPOSITS_PER_TIER * 4;  // 20 deposits
-	    const uint64_t TESTIFIER_CEREMONY_AMOUNT =   // 444.4 TEST total
-            TESTIFIER_DEPOSITS_PER_TIER * (TEST_AMOUNT_TIER_0 + TEST_AMOUNT_TIER_1 + TEST_AMOUNT_TIER_2 + TEST_AMOUNT_TIER_3);
-	    const uint32_t TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING = 2;  // 0xEF deposits: term=2 (fast for testing), 10-block review window
-        const uint32_t TESTNET_ELDERFIER_STAKING_REVIEW_WINDOW = 10;  // 10 blocks (fast review for testing)
-
         // Epoch duration for XFG_CD terms & fees/interest distribution
         const uint64_t EPOCH_DURATION_BLOCKS = 900;  // 5 days (180 blks/day)        // Mainnet: 900 blocks (5 days at 480s/block)
         const uint64_t TESTNET_EPOCH_DURATION_BLOCKS = 10;       // Testnet: 10 blocks (fast epochs for testing)

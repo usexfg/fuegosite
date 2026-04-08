@@ -339,10 +339,8 @@ namespace CryptoNote
       uint64_t mixIn)
   {
 
-    // Skip term range validation for special terms (FOREVER burns and special staking terms)
-    bool isSpecialTerm = (term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER ||
-                          term == CryptoNote::parameters::DEPOSIT_TERM_ELDERFIER_STAKING ||
-                          term == CryptoNote::parameters::TESTNET_DEPOSIT_TERM_ELDERFIER_STAKING);
+    // Skip term range validation for special terms (FOREVER burns)
+    bool isSpecialTerm = (term == CryptoNote::parameters::DEPOSIT_TERM_FOREVER);
     if (!isSpecialTerm) {
       throwIf(term < m_currency.depositMinTerm(), error::DEPOSIT_TERM_TOO_SMALL);
       throwIf(term > m_currency.depositMaxTerm(), error::DEPOSIT_TERM_TOO_BIG);
@@ -751,7 +749,6 @@ namespace CryptoNote
       // Deposit commitment detection:
       // - 0x08 (HEAT) for FOREVER/burn deposits
       // - 0xCD (COLD) for term deposits
-      // - 0xEF (ELDERFIER) for staking deposits
       // The wallet already created and appended the commitment to context->extra (line 551-554).
       // Detect the type directly from the tag byte — parseTransactionExtra has stream
       // position issues with commitment-only extras that cause silent failures.
