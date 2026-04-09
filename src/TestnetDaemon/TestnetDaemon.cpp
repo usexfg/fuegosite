@@ -40,7 +40,6 @@
 
 #include "../Logging/ConsoleLogger.h"
 #include "../Logging/LoggerManager.h"
-#include "../CryptoNoteCore/ElderfierSignatureBroadcaster.h"
 #include "../CryptoNoteCore/SwapOfferRelay.h"
 #include "../Common/StringTools.h"
 
@@ -341,46 +340,6 @@ int main(int argc, char* argv[])
 
     logger(INFO) << "Core initialized OK";
 
-    // Initialize elderfier broadcaster if --testifier-key provided
-    std::unique_ptr<CryptoNote::ElderfierSignatureBroadcaster> elderfierBroadcaster;
-    {
-      std::string keyHex = command_line::get_arg(vm, arg_testifier_key);
-      if (!keyHex.empty()) {
-        if (keyHex.size() == 64) {
-          Crypto::SecretKey sigSec;
-          Crypto::PublicKey sigPub;
-          if (Common::podFromHex(keyHex, sigSec) && Crypto::secret_key_to_public_key(sigSec, sigPub)) {
-            logger(INFO, BRIGHT_CYAN) << "";
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "  TESTIFIER SIGNING MODE (TESTNET)";
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "  Signing pubkey: " << Common::podToHex(sigPub);
-            logger(INFO, BRIGHT_CYAN) << "========================================";
-            logger(INFO, BRIGHT_CYAN) << "";
-            elderfierBroadcaster = std::make_unique<CryptoNote::ElderfierSignatureBroadcaster>(ccore, p2psrv, &p2psrv, logManager);
-            elderfierBroadcaster->setSigningKeys(sigPub, sigSec);
-
-            // Set payout address if provided
-            std::string payoutAddr = command_line::get_arg(vm, arg_testifier_address);
-            if (!payoutAddr.empty()) {
-              elderfierBroadcaster->setPayoutAddress(payoutAddr);
-              logger(INFO, BRIGHT_CYAN) << "  Payout address: " << payoutAddr;
-            } else {
-              logger(WARNING, BRIGHT_YELLOW) << "No --testifier-address set. Testifier payout address not configured.";
-              logger(WARNING, BRIGHT_YELLOW) << "Use: --testifier-address=<your_wallet_address>";
-            }
-
-            elderfierBroadcaster->start();
-            logger(INFO, BRIGHT_GREEN) << "Testifier signature broadcaster started";
-          } else {
-            logger(ERROR, BRIGHT_RED) << "Invalid --testifier-key hex";
-          }
-        } else {
-          logger(ERROR, BRIGHT_RED) << "Invalid --testifier-key: must be 64 hex characters";
-        }
-      }
-    }
-
     // Initialize swap offer relay
     auto swapRelay = std::make_unique<CryptoNote::SwapOfferRelay>(ccore, p2psrv, &p2psrv);
     swapRelay->start();
@@ -440,13 +399,6 @@ int main(int argc, char* argv[])
       logger(INFO) << "Stopping swap offer relay...";
       swapRelay->stop();
       swapRelay.reset();
-    }
-
-    // Stop elderfier signing before teardown
-    if (elderfierBroadcaster) {
-      logger(INFO) << "Stopping TESTIFIER broadcaster...";
-      elderfierBroadcaster->stop();
-      elderfierBroadcaster.reset();
     }
 
     //stop components

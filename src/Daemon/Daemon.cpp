@@ -49,7 +49,6 @@
 #include "P2p/NetNodeConfig.h"
 #include "Rpc/RpcServer.h"
 #include "Rpc/RpcServerConfig.h"
-#include "CryptoNoteCore/ElderfierSignatureBroadcaster.h"
 #include "CryptoNoteCore/SwapOfferRelay.h"
 #include "SwapDaemon/SwapDaemon.h"
 #include "SwapDaemon/SwapDatabase.h"
@@ -85,9 +84,6 @@ namespace
   const command_line::arg_descriptor<std::string> arg_set_fee_address = { "fee-address", "Set a fee address for remote nodes", "" };
   const command_line::arg_descriptor<std::string> arg_set_view_key = { "view-key", "Set secret view-key for remote node fee confirmation", "" };
 
-  // Elderfier signing key: hex secret key produced by elderking_ceremony
-  const command_line::arg_descriptor<std::string> arg_elderfier_key = {"elderfier-key", "Secret signing key (hex) for Elderfier merkle root signing. Produced during elderking_ceremony.", ""};
-  const command_line::arg_descriptor<std::string> arg_elderfier_address = {"elderfier-address", "Wallet address for Elderfier payout.", ""};
   const command_line::arg_descriptor<bool>        arg_restricted_rpc = {"restricted-rpc", "Restrict RPC to view only commands to prevent abuse"};
   const command_line::arg_descriptor<std::string> arg_enable_cors = { "enable-cors", "Adds header 'Access-Control-Allow-Origin' to the daemon's RPC responses. Uses the value as domain. Use * for all", "" };
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", 2}; // info level
@@ -132,11 +128,6 @@ JsonValue buildLoggerConfiguration(Level level, const std::string& logfile) {
   return loggerConfiguration;
 }
 
-// Forward declaration for elderfier broadcaster initialization
-std::unique_ptr<CryptoNote::ElderfierSignatureBroadcaster> initializeElderfierBroadcaster(
-    CryptoNote::core& ccore, CryptoNote::NodeServer& p2psrv,
-    const boost::program_options::variables_map& vm, LoggerRef& logger,
-    Logging::LoggerManager& logManager);
 
 int main(int argc, char* argv[])
 {
@@ -172,9 +163,6 @@ int main(int argc, char* argv[])
    command_line::add_arg(desc_cmd_sett, arg_log_level);
    command_line::add_arg(desc_cmd_sett, arg_console);
    command_line::add_arg(desc_cmd_sett, arg_set_view_key);
-
-   command_line::add_arg(desc_cmd_sett, arg_elderfier_key);
-   command_line::add_arg(desc_cmd_sett, arg_elderfier_address);
 
    command_line::add_arg(desc_cmd_sett, arg_testnet_on);
    command_line::add_arg(desc_cmd_sett, arg_enable_cors);
@@ -350,9 +338,6 @@ int main(int argc, char* argv[])
 
     logger(INFO) << "Core initialized OK";
 
-    // Initialize elderfier signature broadcaster (if --elderfier-key provided)
-    auto elderfierBroadcaster = initializeElderfierBroadcaster(ccore, p2psrv, vm, logger, logManager);
-
     // Initialize swap offer relay (always runs — relays offers for the network)
     auto swapRelay = std::make_unique<CryptoNote::SwapOfferRelay>(ccore, p2psrv, &p2psrv);
     swapRelay->start();
@@ -360,7 +345,7 @@ int main(int argc, char* argv[])
     logger(INFO) << "Swap offer relay started";
 
     // Initialize SwapDaemon (embedded — replaces standalone swapdaemon binary)
-    std::string swapDataDir = data_dir + "/swaps";
+    std::string swapDataDir = coreConfig.configFolder + "/swaps";
     boost::filesystem::create_directories(swapDataDir);
     auto swapDb = std::make_unique<XfgSwap::SwapDatabase>(swapDataDir);
     auto swapDaemon = std::make_unique<XfgSwap::SwapDaemon>(
@@ -432,13 +417,6 @@ int main(int argc, char* argv[])
       swapRelay.reset();
     }
 
-    // Stop elderfier signing before tearing down core/p2p
-    if (elderfierBroadcaster) {
-      logger(INFO) << "Stopping elderfier broadcaster...";
-      elderfierBroadcaster->stop();
-      elderfierBroadcaster.reset();
-    }
-
     //stop components
     logger(INFO) << "Stopping core rpc server...";
     rpcServer.stop();
@@ -483,72 +461,4 @@ bool command_line_preprocessor(const boost::program_options::variables_map &vm, 
 }
 
 
-// ============================================================================
-// ELDERFIER SIGNATURE BROADCASTER INITIALIZATION
-// ============================================================================
-
-std::unique_ptr<CryptoNote::ElderfierSignatureBroadcaster> initializeElderfierBroadcaster(
-    CryptoNote::core& ccore, CryptoNote::NodeServer& p2psrv,
-    const boost::program_options::variables_map& vm, LoggerRef& logger,
-    Logging::LoggerManager& logManager) {
-
-    try {
-        std::string keyHex = command_line::get_arg(vm, arg_elderfier_key);
-        if (keyHex.empty()) {
-            return nullptr;  // Not running as elderfier
-        }
-
-        // Parse signing secret key from hex
-        if (keyHex.size() != 64) {
-            logger(ERROR, BRIGHT_RED) << "Invalid --elderfier-key: must be 64 hex characters (32 bytes)";
-            return nullptr;
-        }
-
-        Crypto::SecretKey signingSecKey;
-        if (!Common::podFromHex(keyHex, signingSecKey)) {
-            logger(ERROR, BRIGHT_RED) << "Invalid --elderfier-key: bad hex encoding";
-            return nullptr;
-        }
-
-        // Derive public key from secret key
-        Crypto::PublicKey signingPubKey;
-        if (!Crypto::secret_key_to_public_key(signingSecKey, signingPubKey)) {
-            logger(ERROR, BRIGHT_RED) << "Invalid --elderfier-key: cannot derive public key";
-            return nullptr;
-        }
-
-        logger(INFO, BRIGHT_CYAN) << "";
-        logger(INFO, BRIGHT_CYAN) << "========================================";
-        logger(INFO, BRIGHT_CYAN) << "  ELDERFIER SIGNING MODE ACTIVE";
-        logger(INFO, BRIGHT_CYAN) << "========================================";
-        logger(INFO, BRIGHT_CYAN) << "  Signing pubkey: " << Common::podToHex(signingPubKey);
-        logger(INFO, BRIGHT_CYAN) << "  This node will sign merkle roots on each new block.";
-        logger(INFO, BRIGHT_CYAN) << "========================================";
-        logger(INFO, BRIGHT_CYAN) << "";
-
-        // Create and start broadcaster (pass p2psrv as both NodeServer& and IP2pEndpoint*)
-        auto broadcaster = std::make_unique<CryptoNote::ElderfierSignatureBroadcaster>(ccore, p2psrv, &p2psrv, logManager);
-        broadcaster->setSigningKeys(signingPubKey, signingSecKey);
-
-        // Set payout address if provided
-        std::string payoutAddr = command_line::get_arg(vm, arg_elderfier_address);
-        if (!payoutAddr.empty()) {
-          broadcaster->setPayoutAddress(payoutAddr);
-          logger(INFO, BRIGHT_CYAN) << "  Payout address: " << payoutAddr;
-        } else {
-          logger(WARNING, BRIGHT_YELLOW) << "No --elderfier-address set. Elderfier payout address not configured.";
-          logger(WARNING, BRIGHT_YELLOW) << "Use: --elderfier-address=<your_wallet_address>";
-        }
-
-        broadcaster->start();
-
-        logger(INFO, BRIGHT_GREEN) << "Elderfier signature broadcaster started";
-
-        return broadcaster;
-
-    } catch (const std::exception& e) {
-        logger(WARNING) << "Exception initializing elderfier broadcaster: " << e.what();
-        return nullptr;
-    }
-}
 

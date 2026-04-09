@@ -633,10 +633,14 @@ namespace CryptoNote
       << " term=" << newTerm << " from rollover";
 
     // Create new COLD commitment output (will accumulate interest on reinvestedAmount)
-    DepositCommitment newCommitment;
-    newCommitment.term = newTerm;
+    std::array<uint8_t, 32> newDepositSecret;
+    generate_random_bytes(sizeof(newDepositSecret), newDepositSecret.data());
+    CryptoNote::DepositCommitmentKeys newCommitKeys = CryptoNote::deriveCommitmentKeys(newDepositSecret);
+    CryptoNote::TransactionOutputCommitment newCommitOut;
+    newCommitOut.commitKey = newCommitKeys.commitKey;
+    newCommitOut.term = newTerm;
 
-    transaction->addOutput(reinvestedAmount, account.address, TransactionTypes::OutputType::Commitment, newCommitment);
+    transaction->addOutput(reinvestedAmount - fee, newCommitOut);
     transaction->setUnlockTime(0);
 
     // Add commitment spend input with claimed interest
@@ -748,7 +752,13 @@ namespace CryptoNote
 
     // Send the transaction
     try {
-      sendTransaction(*transaction);
+      BinaryArray txData = transaction->getTransactionData();
+      CryptoNote::Transaction cryptoNoteTx;
+      if (!fromBinaryArray(cryptoNoteTx, txData)) {
+        m_logger(ERROR) << "Rollover failed: could not serialize transaction";
+        return false;
+      }
+      sendTransaction(cryptoNoteTx);
       txHashOut = Common::podToHex(transaction->getTransactionHash());
       m_logger(INFO) << "Rollover transaction sent: " << txHashOut;
       return true;

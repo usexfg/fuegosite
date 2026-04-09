@@ -220,12 +220,23 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapStateMachine.cpp
     SwapDaemon/SwapDatabase.cpp
     SwapDaemon/AdaptorSwap.cpp
+    SwapDaemon/SwapDaemon.cpp
+    SwapDaemon/SwapP2P.cpp
+    SwapDaemon/FuegoRpcClient.cpp
+    SwapDaemon/PriceOracle.cpp
     SwapDaemon/PoolTypes.cpp
     SwapDaemon/PoolAMM.cpp
     SwapDaemon/PoolAttestation.cpp
     SwapDaemon/PoolOrganizer.cpp
     SwapDaemon/PoolP2P.cpp
     SwapDaemon/PoolDatabase.cpp
+    SwapDaemon/Monero/MoneroRpcClient.cpp
+    SwapDaemon/Monero/AdaptorSignature.cpp
+    SwapDaemon/Ethereum/EthRpcClient.cpp
+    SwapDaemon/Ethereum/ContractAbi.cpp
+    SwapDaemon/BitcoinCash/BchRpcClient.cpp
+    SwapDaemon/BitcoinCash/HtlcScript.cpp
+    SwapDaemon/Solana/SolRpcClient.cpp
 )
 target_include_directories(SwapDaemonLib PUBLIC
     ${CMAKE_SOURCE_DIR}/src

@@ -17,6 +17,7 @@
 
 #include "WalletRpcServer.h"
 #include "Wallet/WalletGreen.h"
+#include "IWallet.h"
 
 #include <fstream>
 #include <ctime>
@@ -753,13 +754,13 @@ bool wallet_rpc_server::on_create_cd(const wallet_rpc::COMMAND_RPC_CREATE_CD::re
     }
 
     std::string txHash;
-    std::string addr = wg->getAddress();
-    wg->createDeposit(req.amount, static_cast<uint64_t>(req.term), addr, addr, txHash);
+    CryptoNote::IWallet* iwallet = static_cast<CryptoNote::IWallet*>(wg);
+    std::string addr = iwallet->getAddress(0);
+    iwallet->createDeposit(req.amount, static_cast<uint64_t>(req.term), addr, addr, txHash);
 
     // Deposit ID is the new last index after creation
-    size_t depositId = wg->getDepositCount() - 1;
-    CryptoNote::Deposit dep;
-    wg->getDeposit(static_cast<CryptoNote::DepositId>(depositId), dep);
+    size_t depositId = iwallet->getWalletDepositCount() - 1;
+    CryptoNote::Deposit dep = iwallet->getDeposit(depositId);
 
     res.tx_hash       = txHash;
     res.deposit_id    = static_cast<uint64_t>(depositId);
