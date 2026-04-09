@@ -20,6 +20,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -267,7 +268,7 @@ std::string EthRpcClient::httpPost(const std::string& path, const std::string& b
 // ---------------------------------------------------------------------------
 
 std::string EthRpcClient::jsonRpc(const std::string& method, const std::string& params) {
-  static int requestId = 1;
+  static std::atomic<int> requestId{1};
 
   std::ostringstream body;
   body << "{\"jsonrpc\":\"2.0\",\"method\":\"" << method

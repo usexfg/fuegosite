@@ -128,7 +128,8 @@ struct SwapParams {
   // Adaptor point: T = t*G (Bob generates, Alice verifies)
   Crypto::PublicKey adaptorPoint;
   Crypto::SecretKey adaptorSecret;     // t — known by Bob, revealed via ctr chain
-  Crypto::DLEQProof adaptorDleqProof; // proves T is well-formed
+  Crypto::PublicKey adaptorDleqQ;      // Q = t*escrowPubKey (second DLEQ point)
+  Crypto::DLEQProof adaptorDleqProof; // proves T and Q share the same t
 
   // Musig2 session state
   Musig2State musig2;

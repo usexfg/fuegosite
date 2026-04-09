@@ -17,11 +17,18 @@
 #include "SwapStateMachine.h"
 #include <string>
 #include <vector>
+#include <mutex>
+#include <functional>
 
 namespace XfgSwap {
 
 // File-based swap persistence.
 // Each swap is stored as a JSON file in <dataDir>/swaps/<swap_id>.json
+//
+// All public operations acquire m_mutex, serializing tick-thread and
+// user-command access to the same swap files. Atomic rename alone is
+// not sufficient: a concurrent load+save pair from two threads can
+// lose updates (stale copy overwriting a newer state).
 class SwapDatabase {
 public:
   explicit SwapDatabase(const std::string& dataDir);
@@ -38,6 +45,13 @@ public:
   // Delete a swap file from disk.
   bool deleteSwap(const std::string& swapId);
 
+  // Atomically load a swap, mutate it via fn, and save the result.
+  // fn must return true on success; if false, no save occurs.
+  // The mutex is held across load+mutate+save so no concurrent writer
+  // can clobber the update. Returns false on load/mutate/save failure.
+  bool updateSwap(const std::string& swapId,
+                  const std::function<bool(SwapStateMachine&)>& fn);
+
   // Get the data directory path.
   const std::string& dataDir() const;
 
@@ -48,8 +62,13 @@ private:
   // Ensure the swaps directory exists.
   bool ensureDirectory();
 
+  // Unlocked helpers (must be called with m_mutex held).
+  bool saveSwapLocked(const SwapStateMachine& sm);
+  bool loadSwapLocked(const std::string& swapId, SwapStateMachine& sm);
+
   std::string m_dataDir;
   std::string m_swapsDir;
+  mutable std::mutex m_mutex;
 };
 
 } // namespace XfgSwap

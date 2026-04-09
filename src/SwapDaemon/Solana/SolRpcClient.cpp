@@ -21,6 +21,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -31,7 +32,7 @@
 #include <cassert>
 
 #include <openssl/sha.h>
-#include "../../crypto/musig2.cpp"
+#include "../../crypto/musig2.h"
 
 extern "C" {
 #include "../../crypto/crypto-ops.h"
@@ -271,9 +272,14 @@ static void ed25519Sign(const uint8_t* message, size_t msgLen,
   sc_reduce(hram);
 
   // Step 5: s = r + hram * a (mod L)
-  // sc_muladd computes: s = a * b + c (mod L) with 32-byte inputs
+  // Compute via: s = r - (-hram * az)
+  //   sc_mulsub(neg_prod, hram, az, zero) => 0 - hram*az = -hram*az
+  //   sc_sub(s, r, neg_prod)              => r - (-hram*az) = r + hram*az
+  uint8_t zero[32] = {};
+  uint8_t neg_prod[32];
+  sc_mulsub(neg_prod, hram, az, zero);
   uint8_t s[32];
-  Crypto::sc_muladd(s, hram, az, r);
+  sc_sub(s, r, neg_prod);
   memcpy(signature + 32, s, 32);
 }
 
@@ -603,7 +609,7 @@ std::string SolRpcClient::httpPost(const std::string& body) {
 // ---------------------------------------------------------------------------
 
 std::string SolRpcClient::jsonRpc(const std::string& method, const std::string& params) {
-  static int requestId = 1;
+  static std::atomic<int> requestId{1};
   std::ostringstream body;
   body << "{\"jsonrpc\":\"2.0\",\"id\":" << requestId++
        << ",\"method\":\"" << method

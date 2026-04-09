@@ -75,26 +75,23 @@ bool adaptor_generate_adaptor(SwapParams& params,
       reinterpret_cast<const unsigned char*>(&params.adaptorSecret),
       &P_p3);
 
-  // We need Q as a PublicKey for the DLEQ proof, but the proof is generated
-  // internally.  The caller passes Q alongside T and proof to the peer.
-  Crypto::PublicKey Q;
-  ge_tobytes(reinterpret_cast<unsigned char*>(&Q), &Q_p2);
+  // Persist Q = t*P so Alice can verify the DLEQ proof on the wire.
+  ge_tobytes(reinterpret_cast<unsigned char*>(&params.adaptorDleqQ), &Q_p2);
 
   return Crypto::generate_dleq_proof(
       dleq_base_point,
-      params.adaptorPoint,  // A = t*G
-      Q,                     // B = t*P
+      params.adaptorPoint,    // A = t*G
+      params.adaptorDleqQ,    // B = t*P
       params.adaptorSecret,
       params.adaptorDleqProof);
 }
 
 bool adaptor_verify_adaptor(const SwapParams& params,
-                            const Crypto::PublicKey& dleq_base_point,
-                            const Crypto::PublicKey& dleq_peer_Q) {
+                            const Crypto::PublicKey& dleq_base_point) {
   return Crypto::check_dleq_proof(
       dleq_base_point,
       params.adaptorPoint,
-      dleq_peer_Q,
+      params.adaptorDleqQ,
       params.adaptorDleqProof);
 }
 
@@ -162,6 +159,14 @@ bool adaptor_partial_verify(const SwapParams& params) {
 }
 
 Crypto::Signature adaptor_aggregate(SwapParams& params, bool adapted) {
+  // Only Bob holds the adaptor secret t and may call this with adapted=true.
+  // If Alice is ever invoked this way she would silently produce a malformed
+  // aggregate because params.adaptorSecret is zero on her side — so reject.
+  if (adapted && params.role != SwapRole::BOB) {
+    Crypto::Signature zero{};
+    return zero;
+  }
+
   Crypto::Musig2PartialSig sig0, sig1;
 
   if (params.role == SwapRole::ALICE) {
@@ -172,7 +177,8 @@ Crypto::Signature adaptor_aggregate(SwapParams& params, bool adapted) {
     sig1 = params.musig2.ourPartialSig;
   }
 
-  // If adapted, add adaptor secret t to Bob's partial sig (sig1)
+  // If adapted, add adaptor secret t to Bob's partial sig.
+  // Bob's slot is sig1 (signer index 1) in the canonical ordering.
   if (adapted) {
     sc_add(reinterpret_cast<unsigned char*>(&sig1.s),
            reinterpret_cast<const unsigned char*>(&sig1.s),

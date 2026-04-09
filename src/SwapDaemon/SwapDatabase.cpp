@@ -43,7 +43,7 @@ std::string SwapDatabase::swapFilePath(const std::string& swapId) const {
   return m_swapsDir + "/" + swapId + ".json";
 }
 
-bool SwapDatabase::saveSwap(const SwapStateMachine& sm) {
+bool SwapDatabase::saveSwapLocked(const SwapStateMachine& sm) {
   try {
     std::string json = sm.serialize();
     std::string path = swapFilePath(sm.params().swapId);
@@ -74,7 +74,7 @@ bool SwapDatabase::saveSwap(const SwapStateMachine& sm) {
   }
 }
 
-bool SwapDatabase::loadSwap(const std::string& swapId, SwapStateMachine& sm) {
+bool SwapDatabase::loadSwapLocked(const std::string& swapId, SwapStateMachine& sm) {
   try {
     std::string path = swapFilePath(swapId);
     std::ifstream ifs(path, std::ios::binary);
@@ -97,7 +97,27 @@ bool SwapDatabase::loadSwap(const std::string& swapId, SwapStateMachine& sm) {
   }
 }
 
+bool SwapDatabase::saveSwap(const SwapStateMachine& sm) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  return saveSwapLocked(sm);
+}
+
+bool SwapDatabase::loadSwap(const std::string& swapId, SwapStateMachine& sm) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  return loadSwapLocked(swapId, sm);
+}
+
+bool SwapDatabase::updateSwap(const std::string& swapId,
+                              const std::function<bool(SwapStateMachine&)>& fn) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  SwapStateMachine sm;
+  if (!loadSwapLocked(swapId, sm)) return false;
+  if (!fn(sm)) return false;
+  return saveSwapLocked(sm);
+}
+
 std::vector<std::string> SwapDatabase::listSwaps() {
+  std::lock_guard<std::mutex> lock(m_mutex);
   std::vector<std::string> swapIds;
 
   DIR* dir = opendir(m_swapsDir.c_str());
@@ -122,6 +142,7 @@ std::vector<std::string> SwapDatabase::listSwaps() {
 }
 
 bool SwapDatabase::deleteSwap(const std::string& swapId) {
+  std::lock_guard<std::mutex> lock(m_mutex);
   std::string path = swapFilePath(swapId);
   return std::remove(path.c_str()) == 0;
 }

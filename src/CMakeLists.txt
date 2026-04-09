@@ -246,6 +246,12 @@ target_include_directories(SwapDaemonLib PUBLIC
 target_link_libraries(SwapDaemonLib PUBLIC Common Crypto OpenSSL::SSL OpenSSL::Crypto)
 target_include_directories(SwapDaemonLib SYSTEM PUBLIC ${JSONCPP_INCLUDE_DIRS})
 
+# SwapDaemon unit test: adaptor_aggregate ↔ extract_secret roundtrip
+add_executable(test_adaptor_roundtrip
+    SwapDaemon/tests/test_adaptor_roundtrip.cpp)
+target_link_libraries(test_adaptor_roundtrip PRIVATE
+    SwapDaemonLib Common Crypto OpenSSL::SSL OpenSSL::Crypto)
+
 add_library(Rpc STATIC ${RPC_SOURCES})
 target_include_directories(Rpc PRIVATE ${CMAKE_SOURCE_DIR}/external/httplib)
 target_link_libraries(Rpc PUBLIC SwapDaemonLib)

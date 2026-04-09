@@ -20,6 +20,10 @@
 #include <stdexcept>
 #include <algorithm>
 
+extern "C" {
+#include "crypto/keccak.h"
+}
+
 namespace XfgSwap {
 namespace EthAbi {
 
@@ -104,11 +108,12 @@ static Crypto::Hash hexChunkToHash(const std::string& chunk) {
 // ---------------------------------------------------------------------------
 
 std::string functionSelector(const std::string& signature) {
-  // keccak256 of the ASCII signature, take first 4 bytes
-  Crypto::Hash h;
-  Crypto::cn_fast_hash(signature.data(), signature.size(), h);
+  // keccak256 of the ASCII signature, take first 4 bytes (Ethereum ABI)
+  uint8_t h[32];
+  keccak(reinterpret_cast<const uint8_t*>(signature.data()),
+         static_cast<int>(signature.size()), h, 32);
   // Return as hex with 0x prefix (8 hex chars = 4 bytes)
-  return "0x" + bytesToHex(h.data, 4);
+  return "0x" + bytesToHex(h, 4);
 }
 
 std::string padAddress(const std::string& addr) {

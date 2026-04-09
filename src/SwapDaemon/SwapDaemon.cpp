@@ -277,18 +277,18 @@ bool SwapDaemon::checkTimeouts() {
     if (params.xfgTimeoutHeight > 0 && currentHeight >= params.xfgTimeoutHeight) {
       SwapState current = sm.currentState();
 
-      // Cooperative refund possible from escrow-funded or pre-sigs-ready states
+      // Cooperative refund possible from escrow-funded or pre-sigs-ready states.
+      // Do NOT transition to REFUNDED here — a real cooperative refund requires
+      // exchanging a Musig2 partial with the peer and broadcasting the refund
+      // tx. checkTimeouts() only flags the opportunity; the user (or a future
+      // peer-protocol layer) must call refund() to actually execute it.
       if ((current == SwapState::ADAPTOR_ESCROW_FUNDED ||
            current == SwapState::ADAPTOR_PRESIGS_READY) &&
           params.role == SwapRole::BOB) {
         m_logger(Logging::WARNING) << "Swap " << swapId
-          << " XFG timeout reached at height " << currentHeight;
-
-        if (sm.transition(SwapState::ADAPTOR_REFUNDED)) {
-          m_db.saveSwap(sm);
-          m_logger(Logging::INFO) << "Swap " << swapId << " -> ADAPTOR_REFUNDED";
-          anyExpired = true;
-        }
+          << " XFG timeout reached at height " << currentHeight
+          << " — call 'refund " << swapId << "' to initiate cooperative refund.";
+        anyExpired = true;
       }
     }
   }
@@ -503,17 +503,45 @@ bool SwapDaemon::refund(const std::string& swapId) {
       return false;
     }
 
-    m_logger(Logging::INFO) << "Timeout elapsed. Initiating cooperative refund...";
-    m_logger(Logging::INFO) << "  Both parties must sign a refund tx (no adaptor point).";
+    m_logger(Logging::INFO) << "Timeout elapsed. Preparing cooperative refund partial sig...";
 
-    if (!sm.transition(SwapState::ADAPTOR_REFUNDED)) {
-      m_logger(Logging::ERROR) << "State transition failed";
+    // Exercise the refund crypto path locally: build a dummy prefix hash for the
+    // not-yet-constructed refund tx, init a no-adaptor Musig2 session, and
+    // produce our partial signature. This validates that the refund branch of
+    // the adaptor protocol is wired end-to-end even though the actual tx
+    // construction and peer round-trip are not yet implemented.
+    SwapParams working = params;
+    Crypto::Hash refundPrefixHash;
+    // TODO(wallet-integration): replace with real refund-tx prefix hash once
+    // the SwapDaemon can construct a Fuego Transaction spending the 2-of-2
+    // escrow output back to Bob. Using a deterministic placeholder here so the
+    // Musig2 session init does not trip on a zero hash.
+    Crypto::cn_fast_hash(params.escrowTxHash.data,
+                         sizeof(params.escrowTxHash.data),
+                         refundPrefixHash);
+
+    // Fresh nonce for the refund session. The escrow-spend nonce (if any) was
+    // zeroed after its partial-sign, so we must regenerate here.
+    adaptor_nonce_generate(working);
+    // NOTE: a real cooperative refund also requires the peer's pub nonce;
+    // without it, session init below will proceed with whatever peerPubNonce
+    // was already on the working copy (zero in the worst case). The resulting
+    // partial is not broadcastable — this is the integration gap.
+    if (!adaptor_session_init(working, refundPrefixHash, /*use_adaptor=*/false)) {
+      m_logger(Logging::ERROR) << "Refund session init failed";
       return false;
     }
+    adaptor_partial_sign(working);
 
-    m_db.saveSwap(sm);
-    m_logger(Logging::INFO) << "Swap " << swapId << " -> ADAPTOR_REFUNDED";
-    return true;
+    m_logger(Logging::INFO) << "  Local refund partial sig computed.";
+    m_logger(Logging::WARNING)
+      << "  Cooperative broadcast requires peer round-trip + tx construction"
+      << " (not yet implemented). Swap left in state "
+      << swapStateToString(current) << " pending wallet integration.";
+
+    // Deliberately do NOT transition to ADAPTOR_REFUNDED: that state means the
+    // cooperative refund tx was successfully broadcast. We have not broadcast.
+    return false;
   }
 
   m_logger(Logging::ERROR) << "Cannot refund swap in state: "

@@ -35,6 +35,7 @@ SwapStateMachine::SwapStateMachine()
   std::memset(&m_params.escrowPubKey, 0, sizeof(m_params.escrowPubKey));
   std::memset(&m_params.adaptorPoint, 0, sizeof(m_params.adaptorPoint));
   std::memset(&m_params.adaptorSecret, 0, sizeof(m_params.adaptorSecret));
+  std::memset(&m_params.adaptorDleqQ, 0, sizeof(m_params.adaptorDleqQ));
   std::memset(&m_params.escrowTxHash, 0, sizeof(m_params.escrowTxHash));
   std::memset(&m_params.hashLock, 0, sizeof(m_params.hashLock));
   std::memset(&m_params.preimage, 0, sizeof(m_params.preimage));
@@ -191,14 +192,12 @@ bool SwapStateMachine::isTerminal() const {
   return m_state == SwapState::ADAPTOR_XFG_SPENT ||
          m_state == SwapState::ADAPTOR_REFUNDED ||
          m_state == SwapState::FAILED ||
-         m_state == SwapState::POOL_DEPOSIT_COMPLETE ||
+         // Pool refund/failure states are terminal (funds returned or lost)
          m_state == SwapState::POOL_DEPOSIT_REFUNDED ||
-         m_state == SwapState::POOL_WITHDRAW_COMPLETE ||
          m_state == SwapState::POOL_WITHDRAW_REFUNDED ||
-         m_state == SwapState::POOL_SWAP_COMPLETE ||
          m_state == SwapState::POOL_SWAP_REFUNDED ||
-         m_state == SwapState::POOL_FEE_CLAIMED ||
          m_state == SwapState::POOL_FEE_CLAIM_REFUNDED ||
+         // Pool checkpoint is the final success state after all pool ops complete
          m_state == SwapState::POOL_CHECKPOINT_GENERATED;
 }
 
@@ -217,6 +216,7 @@ std::string SwapStateMachine::serialize() const {
   root.insert("peerSwapPubKey", Common::podToHex(m_params.peerSwapPubKey));
   root.insert("escrowPubKey", Common::podToHex(m_params.escrowPubKey));
   root.insert("adaptorPoint", Common::podToHex(m_params.adaptorPoint));
+  root.insert("adaptorDleqQ", Common::podToHex(m_params.adaptorDleqQ));
   root.insert("escrowTxHash", Common::podToHex(m_params.escrowTxHash));
   root.insert("escrowOutputIndex", static_cast<int64_t>(m_params.escrowOutputIndex));
 
@@ -256,6 +256,8 @@ SwapStateMachine SwapStateMachine::deserialize(const std::string& json) {
     Common::podFromHex(root("escrowPubKey").getString(), params.escrowPubKey);
   if (root.contains("adaptorPoint"))
     Common::podFromHex(root("adaptorPoint").getString(), params.adaptorPoint);
+  if (root.contains("adaptorDleqQ"))
+    Common::podFromHex(root("adaptorDleqQ").getString(), params.adaptorDleqQ);
   if (root.contains("escrowTxHash"))
     Common::podFromHex(root("escrowTxHash").getString(), params.escrowTxHash);
   if (root.contains("escrowOutputIndex"))

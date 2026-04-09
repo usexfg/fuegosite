@@ -140,7 +140,11 @@ namespace CryptoNote
 
     // swapxfg TUI launcher
     bool swap_tui(const std::vector<std::string> &args);
+
+  protected:
     void launchSwapxfg(bool testnet = false);
+
+  private:
 
      bool create_cold_secret(const std::vector<std::string> &args);
 

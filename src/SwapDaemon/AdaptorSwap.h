@@ -55,11 +55,11 @@ bool adaptor_generate_adaptor(SwapParams& params,
 
 // ─── Step 3b: Verify adaptor point (Alice only) ─────────────────────
 //
-// Alice checks Bob's DLEQ proof that T is well-formed.
-// dleq_peer_Q is Bob's Q = t * base_point (sent alongside T and proof).
+// Alice checks Bob's DLEQ proof that T and Q share the same discrete log t.
+// Before calling: populate params.adaptorPoint, params.adaptorDleqQ, and
+// params.adaptorDleqProof from the wire message.
 bool adaptor_verify_adaptor(const SwapParams& params,
-                            const Crypto::PublicKey& dleq_base_point,
-                            const Crypto::PublicKey& dleq_peer_Q);
+                            const Crypto::PublicKey& dleq_base_point);
 
 // ─── Step 4: Nonce generation ────────────────────────────────────────
 //
