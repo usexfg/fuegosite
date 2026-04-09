@@ -243,7 +243,7 @@ target_include_directories(SwapDaemonLib PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/SwapDaemon
 )
-target_link_libraries(SwapDaemonLib PUBLIC Common)
+target_link_libraries(SwapDaemonLib PUBLIC Common Crypto OpenSSL::SSL OpenSSL::Crypto)
 target_include_directories(SwapDaemonLib SYSTEM PUBLIC ${JSONCPP_INCLUDE_DIRS})
 
 add_library(Rpc STATIC ${RPC_SOURCES})
@@ -397,7 +397,6 @@ target_link_libraries(Daemon PRIVATE
     InProcessNode
     upnpc-static
     BlockchainExplorer
-    FuegoMeshtastic
     FuegoI2P
     FuegoTor
     ${Boost_LIBRARIES}
