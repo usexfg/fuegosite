@@ -1533,7 +1533,7 @@ namespace CryptoNote
     }
 
     // Write tag
-    tx_extra.push_back(TX_EXTRA_ELDERFIER_ALIAS);
+    tx_extra.push_back(TX_EXTRA_ALIAS);
 
     // Serialize the alias registration
     BinaryArray ba;
@@ -1550,7 +1550,7 @@ namespace CryptoNote
   bool getAliasFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraAliasRegistration& alias) {
     // Find the 0xEA tag in extra
     for (size_t i = 0; i < tx_extra.size(); ++i) {
-      if (tx_extra[i] == TX_EXTRA_ELDERFIER_ALIAS) {
+      if (tx_extra[i] == TX_EXTRA_ALIAS) {
         // Read size
         size_t offset = i + 1;
         if (offset >= tx_extra.size()) return false;

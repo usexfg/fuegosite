@@ -56,7 +56,6 @@ public:
   size_t size() const;
 
   // Validation helpers (static, usable by callers before registration)
-  static bool isValidElderfierAlias(const std::string& alias);
   static bool isValidRegularAlias(const std::string& alias);
 
 private:

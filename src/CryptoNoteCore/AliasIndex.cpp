@@ -63,23 +63,6 @@ void AliasIndex::reserveDevTeamAliases() {
 // VALIDATION HELPERS
 // ============================================================================
 
-// Elderfier alias: MUST be exactly 8 characters from [A-Z 0-9 &]
-bool AliasIndex::isValidElderfierAlias(const std::string& alias) {
-  // Special exception: "GALAPAGOS" is allowed as a 9-character Elderfier alias
-  if (alias == "GALAPAGOS") return true;
-  // Special exception: "WINSLAYER" is allowed as a 9-character Elderfier alias
-  if (alias == "WINSLAYER") return true;
-  // Special exception: "LOUDMINING" is the only 10-character Elderfier alias allowed
-  if (alias == "LOUDMINING") return true;
-
-  if (alias.length() != 8) return false;
-  for (char c : alias) {
-    bool ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '&');
-    if (!ok) return false;
-  }
-  return true;
-}
-
 // Regular alias: exactly 8 characters from [a-z 0-9 &]
 bool AliasIndex::isValidRegularAlias(const std::string& alias) {
   // Special exception: "winslayer" is allowed as a 9-character regular alias
@@ -145,9 +128,7 @@ bool AliasIndex::registerAlias(const AliasEntry& entry) {
 
   // Validate alias format based on type
   if (entry.aliasType == 0) {
-    if (!isValidElderfierAlias(entry.alias)) {
-      return false;
-    }
+    return false;  // Elderfier aliases no longer supported
   } else if (entry.aliasType == 1) {
     if (!isValidRegularAlias(entry.alias)) {
       return false;

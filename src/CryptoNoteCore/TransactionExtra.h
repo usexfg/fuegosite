@@ -70,7 +70,7 @@
 #define TX_EXTRA_ELDERFIER_MESSAGE          0xEC  // Elderfier messaging/consensus
 
 // 0xEA tag: @ Alias registration (on-chain)
-#define TX_EXTRA_ELDERFIER_ALIAS            0xEA  // @ alias registration for Elderfiers and users
+#define TX_EXTRA_ALIAS                      0xEA  // @ alias registration
 
 // 0xCE tag: COLD migration (register v3 commitment for a pre-v3 legacy deposit)
 #define TX_EXTRA_COLD_MIGRATION             0xCE

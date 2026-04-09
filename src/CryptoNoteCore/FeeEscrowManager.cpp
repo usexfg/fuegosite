@@ -26,11 +26,11 @@ FeeEscrowManager::~FeeEscrowManager() {
   save();
 }
 
-bool FeeEscrowManager::addFeeEscrow(uint64_t epochNumber, uint8_t elderfier_id,
-                                   const std::string& elderfierAddress, uint64_t feeAmount) {
+bool FeeEscrowManager::addFeeEscrow(uint64_t epochNumber, uint8_t beneficiary_id,
+                                   const std::string& beneficiaryAddress, uint64_t feeAmount) {
   std::unique_lock<std::mutex> lock(m_mutex);
 
-  auto key = std::make_pair(epochNumber, elderfier_id);
+  auto key = std::make_pair(epochNumber, beneficiary_id);
   auto it = m_escrowEntries.find(key);
 
   FeeEscrowEntry entry;
@@ -41,8 +41,8 @@ bool FeeEscrowManager::addFeeEscrow(uint64_t epochNumber, uint8_t elderfier_id,
   } else {
     // New entry
     entry.epochNumber = epochNumber;
-    entry.elderfier_id = elderfier_id;
-    entry.elderfierAddress = elderfierAddress;
+    entry.elderfier_id = beneficiary_id;
+    entry.elderfierAddress = beneficiaryAddress;
     entry.feeAmount = feeAmount;
     entry.timestamp = std::time(nullptr);
     entry.claimed = false;
@@ -55,30 +55,30 @@ bool FeeEscrowManager::addFeeEscrow(uint64_t epochNumber, uint8_t elderfier_id,
 
   m_logger(Logging::DEBUGGING, Logging::BRIGHT_GREEN)
       << "Added fee escrow: epoch " << epochNumber
-      << ", elderfier " << static_cast<int>(elderfier_id)
+      << ", beneficiary " << static_cast<int>(beneficiary_id)
       << ", amount: " << feeAmount;
 
   return save();
 }
 
-bool FeeEscrowManager::claimFees(uint64_t epochNumber, uint8_t elderfier_id,
+bool FeeEscrowManager::claimFees(uint64_t epochNumber, uint8_t beneficiary_id,
                                  uint64_t blockHeight) {
   std::unique_lock<std::mutex> lock(m_mutex);
 
-  auto key = std::make_pair(epochNumber, elderfier_id);
+  auto key = std::make_pair(epochNumber, beneficiary_id);
   auto it = m_escrowEntries.find(key);
 
   if (it == m_escrowEntries.end()) {
     m_logger(Logging::WARNING, Logging::BRIGHT_YELLOW)
         << "No escrow entry found to claim: epoch " << epochNumber
-        << ", elderfier " << static_cast<int>(elderfier_id);
+        << ", beneficiary " << static_cast<int>(beneficiary_id);
     return false;
   }
 
   if (it->second.claimed) {
     m_logger(Logging::WARNING, Logging::BRIGHT_YELLOW)
         << "Already claimed: epoch " << epochNumber
-        << ", elderfier " << static_cast<int>(elderfier_id);
+        << ", beneficiary " << static_cast<int>(beneficiary_id);
     return false;
   }
 
@@ -89,28 +89,28 @@ bool FeeEscrowManager::claimFees(uint64_t epochNumber, uint8_t elderfier_id,
 
   m_logger(Logging::DEBUGGING, Logging::BRIGHT_GREEN)
       << "Claimed fees: epoch " << epochNumber
-      << ", elderfier " << static_cast<int>(elderfier_id)
+      << ", beneficiary " << static_cast<int>(beneficiary_id)
       << ", amount: " << entry.feeAmount;
 
   return save();
 }
 
-uint64_t FeeEscrowManager::getUnclaimedFees(uint8_t elderfier_id) const {
+uint64_t FeeEscrowManager::getUnclaimedFees(uint8_t beneficiary_id) const {
   std::unique_lock<std::mutex> lock(m_mutex);
 
   uint64_t total = 0;
   for (const auto& pair : m_escrowEntries) {
-    if (pair.second.elderfier_id == elderfier_id && !pair.second.claimed) {
+    if (pair.second.elderfier_id == beneficiary_id && !pair.second.claimed) {
       total += pair.second.feeAmount;
     }
   }
   return total;
 }
 
-uint64_t FeeEscrowManager::getUnclaimedFeesForEpoch(uint64_t epochNumber, uint8_t elderfier_id) const {
+uint64_t FeeEscrowManager::getUnclaimedFeesForEpoch(uint64_t epochNumber, uint8_t beneficiary_id) const {
   std::unique_lock<std::mutex> lock(m_mutex);
 
-  auto key = std::make_pair(epochNumber, elderfier_id);
+  auto key = std::make_pair(epochNumber, beneficiary_id);
   auto it = m_escrowEntries.find(key);
 
   if (it == m_escrowEntries.end() || it->second.claimed) {
@@ -137,12 +137,12 @@ uint64_t FeeEscrowManager::getTotalFeesClaimed() const {
   return m_totalFeesClaimed;
 }
 
-std::vector<FeeEscrowEntry> FeeEscrowManager::getElderfierEscrowHistory(uint8_t elderfier_id) const {
+std::vector<FeeEscrowEntry> FeeEscrowManager::getElderfierEscrowHistory(uint8_t beneficiary_id) const {
   std::unique_lock<std::mutex> lock(m_mutex);
 
   std::vector<FeeEscrowEntry> result;
   for (const auto& pair : m_escrowEntries) {
-    if (pair.second.elderfier_id == elderfier_id) {
+    if (pair.second.elderfier_id == beneficiary_id) {
       result.push_back(pair.second);
     }
   }
@@ -166,7 +166,7 @@ std::vector<FeeEscrowEntry> FeeEscrowManager::getEpochEscrowEntries(uint64_t epo
     }
   }
 
-  // Sort by elderfier ID
+  // Sort by beneficiary ID
   std::sort(result.begin(), result.end(),
             [](const FeeEscrowEntry& a, const FeeEscrowEntry& b) {
               return a.elderfier_id < b.elderfier_id;
@@ -186,16 +186,16 @@ FeeEscrowStats FeeEscrowManager::getStats() const {
 
   // Count unique epochs
   std::set<uint64_t> uniqueEpochs;
-  std::set<uint8_t> activeElderfiers;
+  std::set<uint8_t> activeBeneficiaries;
   for (const auto& pair : m_escrowEntries) {
     uniqueEpochs.insert(pair.second.epochNumber);
     if (!pair.second.claimed) {
-      activeElderfiers.insert(pair.second.elderfier_id);
+      activeBeneficiaries.insert(pair.second.elderfier_id);
     }
   }
 
   stats.totalActiveEpochs = uniqueEpochs.size();
-  stats.activeElderfierCount = activeElderfiers.size();
+  stats.activeElderfierCount = activeBeneficiaries.size();
 
   return stats;
 }

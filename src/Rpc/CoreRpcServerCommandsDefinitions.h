@@ -1180,7 +1180,7 @@ struct COMMAND_RPC_GET_COMMITMENT {
     uint32_t block_height;
     uint64_t amount;
     uint32_t term;
-    uint8_t type;               // 0=HEAT, 1=YIELD/COLD, 2=ELDERFIER_STAKING
+    uint8_t type;               // 0=HEAT, 1=YIELD/COLD
     uint32_t target_chain_id;
     uint32_t leaf_index;
     bool is_legacy;         // true only for 0xCE migrations (original tx had MultisignatureOutput)
