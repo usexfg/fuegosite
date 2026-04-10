@@ -95,6 +95,7 @@ std::unordered_map<std::string, RpcServer::RpcHandler<RpcServer::HandlerFunction
   { "/get_o_indexes.bin", { binMethod<COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES>(&RpcServer::on_get_indexes), false } },
   { "/getrandom_outs.bin", { binMethod<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS>(&RpcServer::on_get_random_outs), false } },
   { "/getrandom_commitment_outs.bin", { binMethod<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS>(&RpcServer::on_get_random_commitment_outs), false } },
+  { "/getrandom_outs_json", { jsonMethod<COMMAND_RPC_GET_RANDOM_OUTPUTS_JSON>(&RpcServer::on_get_random_outs_json), true } },
   { "/get_pool_changes.bin", { binMethod<COMMAND_RPC_GET_POOL_CHANGES>(&RpcServer::onGetPoolChanges), false } },
   { "/get_pool_changes_lite.bin", { binMethod<COMMAND_RPC_GET_POOL_CHANGES_LITE>(&RpcServer::onGetPoolChangesLite), false } },
 
@@ -657,6 +658,34 @@ bool RpcServer::on_get_random_commitment_outs(const COMMAND_RPC_GET_RANDOM_COMMI
   res.status = CORE_RPC_STATUS_OK;
   logger(TRACE) << "COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS: amount=" << req.amount
                 << " requested=" << req.outs_count << " returned=" << res.outs.size();
+  return true;
+}
+
+bool RpcServer::on_get_random_outs_json(const COMMAND_RPC_GET_RANDOM_OUTPUTS_JSON::request& req,
+                                         COMMAND_RPC_GET_RANDOM_OUTPUTS_JSON::response& res) {
+  res.status = "Failed";
+
+  // Delegate to the same core logic as the binary endpoint.
+  COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request binReq;
+  binReq.amounts.push_back(req.amount);
+  binReq.outs_count = req.count;
+
+  COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response binRes;
+  if (!m_core.get_random_outs_for_amounts(binReq, binRes)) {
+    return true;
+  }
+
+  // Convert packed binary entries to JSON-friendly format.
+  for (const auto& ofa : binRes.outs) {
+    for (const auto& entry : ofa.outs) {
+      COMMAND_RPC_GET_RANDOM_OUTPUTS_JSON::out_entry je;
+      je.global_index = entry.global_amount_index;
+      je.out_key = Common::podToHex(entry.out_key);
+      res.outs.push_back(std::move(je));
+    }
+  }
+
+  res.status = CORE_RPC_STATUS_OK;
   return true;
 }
 

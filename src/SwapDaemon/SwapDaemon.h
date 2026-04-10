@@ -17,6 +17,8 @@
 #include "SwapTypes.h"
 #include "SwapStateMachine.h"
 #include "SwapDatabase.h"
+#include "SwapTxBuilder.h"
+#include "SwapPeerProtocol.h"
 #include "FuegoRpcClient.h"
 #include "PriceOracle.h"
 #include "../Logging/ILogger.h"
@@ -116,6 +118,16 @@ public:
   // Returns the resolved XFG address. If input is an alias (@name or short name),
   // resolves via RPC. If already an address, returns as-is. Returns "" on failure.
   std::string resolveAddressOrAlias(const std::string& input);
+
+  // Build an unsigned escrow-spend tx, run collaborative ring sig rounds
+  // with the peer, attach the final signature, and broadcast.
+  // txType: "spend" (adapted, Bob claims) or "refund" (cooperative, both sign)
+  bool buildAndBroadcastEscrowTx(SwapParams& params,
+                                 const Crypto::PublicKey& destinationKey,
+                                 const std::string& txType);
+
+  // Handle an incoming peer message for an active swap.
+  bool handlePeerMessage(const PeerMessage& msg);
 
   // Background tick thread — runs checkTimeouts + processSwap every 30 s
   void tickLoop();

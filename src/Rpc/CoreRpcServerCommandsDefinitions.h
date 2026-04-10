@@ -1933,4 +1933,40 @@ struct COMMAND_RPC_GET_COMMITMENT_LEAVES {
   };
 };
 
+//-----------------------------------------------
+// JSON-friendly random outputs for SwapDaemon decoy selection.
+// Wraps the same core logic as /getrandom_outs.bin but uses per-field
+// JSON serialization instead of packed binary blobs.
+struct COMMAND_RPC_GET_RANDOM_OUTPUTS_JSON {
+  struct request {
+    uint64_t amount;
+    uint64_t count;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(amount)
+      KV_MEMBER(count)
+    }
+  };
+
+  struct out_entry {
+    uint64_t global_index;
+    std::string out_key;  // hex-encoded PublicKey
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(global_index)
+      KV_MEMBER(out_key)
+    }
+  };
+
+  struct response {
+    std::vector<out_entry> outs;
+    std::string status;
+
+    void serialize(ISerializer& s) {
+      KV_MEMBER(outs)
+      KV_MEMBER(status)
+    }
+  };
+};
+
 }

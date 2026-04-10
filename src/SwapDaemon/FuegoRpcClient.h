@@ -41,6 +41,12 @@ struct TxOutputInfo {
   Crypto::PublicKey targetKey;  // KeyOutput target public key
 };
 
+// Decoy output for ring signature construction.
+struct RandomOutputEntry {
+  uint64_t globalIndex;
+  Crypto::PublicKey outKey;
+};
+
 class FuegoRpcClient {
 public:
   FuegoRpcClient(const std::string& host, uint16_t port);
@@ -72,6 +78,11 @@ public:
   // txHashHex: 64-char hex hash. Returns false if tx not found.
   bool getTransactionOutputs(const std::string& txHashHex,
                              std::vector<TxOutputInfo>& outputs);
+
+  // Get random outputs for ring decoys at a given amount.
+  // Returns `count` random {global_index, public_key} pairs via the JSON endpoint.
+  bool getRandomOutputs(uint64_t amount, uint64_t count,
+                        std::vector<RandomOutputEntry>& entries);
 
   // Resolve an alias name to an XFG address. Returns false if not found.
   bool resolveAlias(const std::string& alias, std::string& addressOut);

@@ -221,6 +221,8 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapDatabase.cpp
     SwapDaemon/AdaptorSwap.cpp
     SwapDaemon/SwapDaemon.cpp
+    SwapDaemon/SwapTxBuilder.cpp
+    SwapDaemon/SwapPeerProtocol.cpp
     SwapDaemon/SwapP2P.cpp
     SwapDaemon/FuegoRpcClient.cpp
     SwapDaemon/PriceOracle.cpp
@@ -243,7 +245,7 @@ target_include_directories(SwapDaemonLib PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/SwapDaemon
 )
-target_link_libraries(SwapDaemonLib PUBLIC Common Crypto OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(SwapDaemonLib PUBLIC Common Crypto Serialization CryptoNoteCore OpenSSL::SSL OpenSSL::Crypto)
 target_include_directories(SwapDaemonLib SYSTEM PUBLIC ${JSONCPP_INCLUDE_DIRS})
 
 # SwapDaemon unit test: adaptor_aggregate ↔ extract_secret roundtrip

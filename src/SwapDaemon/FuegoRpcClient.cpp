@@ -293,6 +293,37 @@ bool FuegoRpcClient::getTransactionOutputs(const std::string& txHashHex,
   }
 }
 
+bool FuegoRpcClient::getRandomOutputs(uint64_t amount, uint64_t count,
+                                      std::vector<RandomOutputEntry>& entries) {
+  try {
+    std::ostringstream body;
+    body << "{\"amount\":" << amount << ",\"count\":" << count << "}";
+
+    std::string responseBody = daemonPost("/getrandom_outs_json", body.str());
+    Common::JsonValue json = Common::JsonValue::fromString(responseBody);
+
+    if (!json.isObject() || !json.contains("status")) return false;
+    if (json("status").getString() != "OK") return false;
+    if (!json.contains("outs")) return false;
+
+    const auto& outs = json("outs");
+    if (!outs.isArray()) return false;
+
+    entries.clear();
+    entries.reserve(outs.size());
+    for (size_t i = 0; i < outs.size(); ++i) {
+      const auto& e = outs[i];
+      RandomOutputEntry re;
+      re.globalIndex = static_cast<uint64_t>(e("global_index").getInteger());
+      Common::podFromHex(e("out_key").getString(), re.outKey);
+      entries.push_back(re);
+    }
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
 bool FuegoRpcClient::resolveAlias(const std::string& alias, std::string& addressOut) {
   try {
     std::string body = "{\"alias\":\"" + alias + "\"}";
