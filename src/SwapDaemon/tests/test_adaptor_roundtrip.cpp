@@ -60,7 +60,7 @@ static bool setupPair(SwapParams& alice, SwapParams& bob) {
   alice.adaptorPoint     = bob.adaptorPoint;
   alice.adaptorDleqQ     = bob.adaptorDleqQ;
   alice.adaptorDleqProof = bob.adaptorDleqProof;
-  if (!adaptor_verify_adaptor(alice, alice.escrowPubKey)) {
+  if (!adaptor_verify_adaptor(alice, alice.escrowPubKey, alice.adaptorDleqQ)) {
     std::cerr << "    FAIL: Alice rejected Bob's DLEQ proof\n";
     return false;
   }

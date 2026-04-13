@@ -697,7 +697,7 @@ bool SwapDaemon::handlePeerMessage(const PeerMessage& msg) {
         params.adaptorPoint = msg.adaptorExchange.adaptorPoint;
         params.adaptorDleqQ = msg.adaptorExchange.adaptorDleqQ;
         params.adaptorDleqProof = msg.adaptorExchange.dleqProof;
-        if (!adaptor_verify_adaptor(params, params.escrowPubKey)) {
+        if (!adaptor_verify_adaptor(params, params.escrowPubKey, params.adaptorDleqQ)) {
           m_logger(Logging::ERROR) << "DLEQ proof verification failed!";
           return false;
         }

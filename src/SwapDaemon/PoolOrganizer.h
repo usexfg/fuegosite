@@ -39,6 +39,11 @@
 
 namespace XfgSwap {
 
+// ─── ZK Proof Epoch Constants ───────────────────────────────────────────
+
+static constexpr uint32_t LP_EPOCH_BLOCKS = 100;  // ~13 hours
+static constexpr uint32_t LP_PROOF_DEADLINE_BLOCKS = 115;  // 15 blocks after epoch end
+
 class PoolOrganizer {
 public:
   explicit PoolOrganizer(Logging::ILogger& logger);
@@ -147,6 +152,56 @@ public:
 
   PoolStats getPoolStats(const PoolId& poolId) const;
 
+  // ─── ZK Proof Epoch Management ───────────────────────────────────────
+
+  // Start a new epoch for a pool (called at epoch boundary)
+  void startEpoch(const PoolId& poolId, uint32_t blockHeight);
+
+  // Check if a block height is an epoch boundary for a pool
+  bool isEpochBoundary(const PoolId& poolId, uint32_t blockHeight) const;
+
+  // Get current epoch number for a pool
+  uint32_t getEpochNumber(const PoolId& poolId) const;
+
+  // Get epoch start and end block heights
+  bool getEpochRange(const PoolId& poolId, uint32_t& start, uint32_t& end) const;
+
+  // Derive epoch key (for encrypted event decryption at epoch boundary)
+  std::vector<uint8_t> deriveEpochKey(const PoolId& poolId, uint32_t epoch) const;
+
+  // Buffer an encrypted event for the current epoch
+  void bufferEncryptedEvent(const PoolId& poolId, const std::vector<uint8_t>& ciphertext);
+
+  // Get buffered encrypted events for a pool's current epoch
+  std::vector<std::vector<uint8_t>> getBufferedEvents(const PoolId& poolId) const;
+
+  // Get current LP Merkle tree leaves for SP1 circuit
+  std::vector<Crypto::Hash> getLpTreeLeaves(const PoolId& poolId) const;
+
+  // Get current fee Merkle tree leaves for SP1 circuit
+  std::vector<Crypto::Hash> getFeeTreeLeaves(const PoolId& poolId) const;
+
+  // ─── ZK Proof Generation ─────────────────────────────────────────────
+
+  // Generate SP1 proof inputs for an epoch (called at epoch end)
+  struct EpochProofInputs {
+    PoolState prevState;
+    std::vector<PoolEvent> events;
+    std::vector<uint8_t> epochKey;
+    std::vector<Crypto::Hash> prevLpLeaves;
+    std::vector<Crypto::Hash> prevFeeLeaves;
+  };
+
+  EpochProofInputs prepareProofInputs(const PoolId& poolId);
+
+  // Update pool state after proof is verified on-chain
+  void updatePoolStateFromProof(const PoolId& poolId, const Crypto::Hash& newStateCommitment,
+                                 const Crypto::Hash& newLpMerkleRoot, const Crypto::Hash& newFeeMerkleRoot,
+                                 uint32_t epochEnd);
+
+  // Get pool's current state commitment (for proof verification)
+  Crypto::Hash getStateCommitment(const PoolId& poolId) const;
+
 private:
   // Internal helpers
   PoolState& getPoolMutable(const PoolId& poolId);
@@ -174,7 +229,21 @@ private:
   // Previous checkpoints per pool
   std::unordered_map<std::string, Crypto::Hash> m_prevCheckpoints;
 
-  Logging::ILogger& m_logger;
+  // ─── ZK Proof Epoch State ───────────────────────────────────────────
+
+  // Epoch tracking per pool: key = poolId_hex
+  struct EpochState {
+    uint32_t epochNumber;
+    uint32_t epochStart;
+    uint32_t epochEnd;
+    Crypto::Hash prevStateCommitment;
+  };
+  std::unordered_map<std::string, EpochState> m_epochStates;
+
+  // Encrypted event buffers per pool
+  std::unordered_map<std::string, std::vector<std::vector<uint8_t>>> m_eventBuffers;
+
+  Logging::LoggerRef m_logger;
 };
 
 } // namespace XfgSwap

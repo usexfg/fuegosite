@@ -75,23 +75,26 @@ bool adaptor_generate_adaptor(SwapParams& params,
       reinterpret_cast<const unsigned char*>(&params.adaptorSecret),
       &P_p3);
 
-  // Persist Q = t*P so Alice can verify the DLEQ proof on the wire.
-  ge_tobytes(reinterpret_cast<unsigned char*>(&params.adaptorDleqQ), &Q_p2);
+  // We need Q as a PublicKey for the DLEQ proof, but the proof is generated
+  // internally.  The caller passes Q alongside T and proof to the peer.
+  Crypto::PublicKey Q;
+  ge_tobytes(reinterpret_cast<unsigned char*>(&Q), &Q_p2);
 
   return Crypto::generate_dleq_proof(
       dleq_base_point,
-      params.adaptorPoint,    // A = t*G
-      params.adaptorDleqQ,    // B = t*P
+      params.adaptorPoint,  // A = t*G
+      Q,                     // B = t*P
       params.adaptorSecret,
       params.adaptorDleqProof);
 }
 
 bool adaptor_verify_adaptor(const SwapParams& params,
-                            const Crypto::PublicKey& dleq_base_point) {
+                            const Crypto::PublicKey& dleq_base_point,
+                            const Crypto::PublicKey& dleq_peer_Q) {
   return Crypto::check_dleq_proof(
       dleq_base_point,
       params.adaptorPoint,
-      params.adaptorDleqQ,
+      dleq_peer_Q,
       params.adaptorDleqProof);
 }
 

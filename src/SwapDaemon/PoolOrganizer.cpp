@@ -37,7 +37,7 @@ static std::string lpKey(const PoolId& poolId, const Crypto::PublicKey& owner) {
 }
 
 PoolOrganizer::PoolOrganizer(Logging::ILogger& logger)
-    : m_logger(logger) {}
+    : m_logger(logger, "PoolOrg") {}
 
 PoolOrganizer::~PoolOrganizer() {}
 
@@ -559,6 +559,218 @@ void PoolOrganizer::addFeeRecordToTree(const PoolId& poolId, const PoolFeeRecord
   std::string key = poolKey(poolId);
   Crypto::Hash leaf = computeFeeRecordLeaf(record);
   m_feeTrees[key].addLeaf(leaf);
+}
+
+// ─── ZK Proof Epoch Management ─────────────────────────────────────────
+
+void PoolOrganizer::startEpoch(const PoolId& poolId, uint32_t blockHeight) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  uint32_t epochNum = 0;
+
+  auto it = m_epochStates.find(key);
+  if (it != m_epochStates.end()) {
+    epochNum = it->second.epochNumber + 1;
+  }
+
+  EpochState es;
+  es.epochNumber = epochNum;
+  es.epochStart = blockHeight;
+  es.epochEnd = blockHeight + LP_EPOCH_BLOCKS;
+
+  auto poolIt = m_pools.find(key);
+  if (poolIt != m_pools.end()) {
+    es.prevStateCommitment = poolIt->second.checkpointHash;
+  } else {
+    es.prevStateCommitment = Crypto::Hash{};
+  }
+
+  m_epochStates[key] = es;
+  m_eventBuffers[key].clear();
+
+  m_logger(Logging::INFO) << "LP pool epoch started: pool=" << key << " epoch=" << epochNum <<
+                " range=[" << es.epochStart << "," << es.epochEnd << "]";
+}
+
+bool PoolOrganizer::isEpochBoundary(const PoolId& poolId, uint32_t blockHeight) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_epochStates.find(key);
+  if (it == m_epochStates.end()) {
+    return false;
+  }
+
+  return blockHeight >= it->second.epochEnd;
+}
+
+uint32_t PoolOrganizer::getEpochNumber(const PoolId& poolId) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_epochStates.find(key);
+  if (it == m_epochStates.end()) {
+    return 0;
+  }
+
+  return it->second.epochNumber;
+}
+
+bool PoolOrganizer::getEpochRange(const PoolId& poolId, uint32_t& start, uint32_t& end) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_epochStates.find(key);
+  if (it == m_epochStates.end()) {
+    return false;
+  }
+
+  start = it->second.epochStart;
+  end = it->second.epochEnd;
+  return true;
+}
+
+std::vector<uint8_t> PoolOrganizer::deriveEpochKey(const PoolId& poolId, uint32_t epoch) const {
+  std::string key = poolKey(poolId);
+  const uint8_t* poolBytes = reinterpret_cast<const uint8_t*>(key.data());
+
+  std::vector<uint8_t> data;
+  data.reserve(key.size() + 4);
+  data.insert(data.end(), poolBytes, poolBytes + key.size());
+  uint32_t epochLE = epoch;
+  const uint8_t* epochBytes = reinterpret_cast<const uint8_t*>(&epochLE);
+  data.insert(data.end(), epochBytes, epochBytes + 4);
+
+  std::vector<uint8_t> keyOut(32, 0);
+  for (size_t i = 0; i < 32 && i < data.size(); ++i) {
+    keyOut[i] = data[i];
+  }
+
+  for (size_t i = 0; i < 32; ++i) {
+    keyOut[i] ^= static_cast<uint8_t>((epoch * 31 + i) & 0xFF);
+  }
+
+  return keyOut;
+}
+
+void PoolOrganizer::bufferEncryptedEvent(const PoolId& poolId, const std::vector<uint8_t>& ciphertext) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  m_eventBuffers[key].push_back(ciphertext);
+}
+
+std::vector<std::vector<uint8_t>> PoolOrganizer::getBufferedEvents(const PoolId& poolId) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_eventBuffers.find(key);
+  if (it == m_eventBuffers.end()) {
+    return {};
+  }
+
+  return it->second;
+}
+
+std::vector<Crypto::Hash> PoolOrganizer::getLpTreeLeaves(const PoolId& poolId) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_lpTrees.find(key);
+  if (it == m_lpTrees.end()) {
+    return {};
+  }
+
+  return it->second.leaves();
+}
+
+std::vector<Crypto::Hash> PoolOrganizer::getFeeTreeLeaves(const PoolId& poolId) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_feeTrees.find(key);
+  if (it == m_feeTrees.end()) {
+    return {};
+  }
+
+  return it->second.leaves();
+}
+
+// ─── ZK Proof Generation ───────────────────────────────────────────────
+
+PoolOrganizer::EpochProofInputs PoolOrganizer::prepareProofInputs(const PoolId& poolId) {
+  EpochProofInputs inputs = {};
+
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+
+  auto poolIt = m_pools.find(key);
+  if (poolIt != m_pools.end()) {
+    inputs.prevState = poolIt->second;
+  }
+
+  auto epochIt = m_epochStates.find(key);
+  if (epochIt != m_epochStates.end()) {
+    uint32_t epoch = epochIt->second.epochNumber;
+    inputs.epochKey = deriveEpochKey(poolId, epoch);
+  }
+
+  auto lpIt = m_lpTrees.find(key);
+  if (lpIt != m_lpTrees.end()) {
+    inputs.prevLpLeaves = lpIt->second.leaves();
+  }
+
+  auto feeIt = m_feeTrees.find(key);
+  if (feeIt != m_feeTrees.end()) {
+    inputs.prevFeeLeaves = feeIt->second.leaves();
+  }
+
+  uint32_t epochStart = 0;
+  uint32_t epochEnd = 0;
+  if (epochIt != m_epochStates.end()) {
+    epochStart = epochIt->second.epochStart;
+    epochEnd = epochIt->second.epochEnd;
+  }
+
+  for (const auto& event : m_events) {
+    if (event.poolId == poolId && event.blockHeight >= epochStart && event.blockHeight < epochEnd) {
+      inputs.events.push_back(event);
+    }
+  }
+
+  return inputs;
+}
+
+void PoolOrganizer::updatePoolStateFromProof(const PoolId& poolId, const Crypto::Hash& newStateCommitment,
+                                               const Crypto::Hash& newLpMerkleRoot, const Crypto::Hash& newFeeMerkleRoot,
+                                               uint32_t epochEnd) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+
+  auto it = m_pools.find(key);
+  if (it != m_pools.end()) {
+    it->second.checkpointHash = newStateCommitment;
+    it->second.blockHeight = epochEnd;
+  }
+
+  m_prevCheckpoints[key] = newStateCommitment;
+
+  startEpoch(poolId, epochEnd);
+}
+
+Crypto::Hash PoolOrganizer::getStateCommitment(const PoolId& poolId) const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  std::string key = poolKey(poolId);
+  auto it = m_pools.find(key);
+  if (it == m_pools.end()) {
+    return Crypto::Hash{};
+  }
+
+  return it->second.checkpointHash;
 }
 
 } // namespace XfgSwap
