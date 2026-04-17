@@ -496,7 +496,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 			}
 			txid, vout, pre := parts[2], parts[3], parts[4]
 			client := m.client
-			// TODO: remaining goroutines need tea.Cmd conversion
 			return func() tea.Msg {
 				var processResp struct {
 					Advanced bool   `json:"advanced"`
@@ -520,7 +519,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 			}
 			txid, vout := parts[2], parts[3]
 			client := m.client
-			// TODO: remaining goroutines need tea.Cmd conversion
 			return func() tea.Msg {
 				var refundResp struct{ Status string `json:"status"` }
 				req := map[string]interface{}{"swap_id": txid + ":" + vout}
@@ -562,7 +560,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 			return nil
 		}
 		bridge := m.bridge
-		// TODO: remaining goroutines need tea.Cmd conversion
 		return func() tea.Msg {
 			txHash, err := bridge.EthSendTransaction(htlcAddr, amtWei, calldata)
 			if err != nil {
@@ -587,7 +584,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 			m.statusMsg = "invalid ask price: " + err.Error()
 			return nil
 		}
-		// TODO: remaining goroutines need tea.Cmd conversion
 		return func() tea.Msg {
 			// wallet must sign the offer — stub until wallet endpoint added
 			return statusUpdateMsg{fmt.Sprintf("sell cd: key_image=%s ask=%.7f XFG (signing not yet wired)", keyImage, float64(askAtomic)/1e7)}
@@ -605,7 +601,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 		}
 		offerID := parts[1]
 		client := m.client
-		// TODO: remaining goroutines need tea.Cmd conversion
 		return func() tea.Msg {
 			if err := client.CancelCdOffer(offerID, "", ""); err != nil {
 				return statusUpdateMsg{"cancel failed: " + err.Error()}
@@ -633,7 +628,6 @@ func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 			return nil
 		}
 		client := m.client
-		// TODO: remaining goroutines need tea.Cmd conversion
 		return func() tea.Msg {
 			resp, err := client.AcceptCdOffer(offerID, "")
 			if err != nil {
