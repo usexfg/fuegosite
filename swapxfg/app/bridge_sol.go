@@ -16,7 +16,9 @@ func solBridgeHTML(port int) string {
 <body style="background:#111;color:#eee;font-family:monospace;padding:24px">
 <h2 style="color:#FF5500">&#x26B3;&#xFE0F; swapxfg &middot; SOL bridge</h2>
 <p id="status">Connecting to swapxfg&hellip;</p>
-<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"
+        integrity="sha384-t6eXk3KnnVF8BXZ7KRdyBGriL3ZYWL5xtfkiV6FwP5e3T1KxCPq0EAK5q6d2MkiL"
+        crossorigin="anonymous"></script>
 <script>
 const ws = new WebSocket("ws://127.0.0.1:%d/bridge/ws");
 const st = document.getElementById("status");
@@ -65,10 +67,28 @@ ws.onmessage = async (ev) => {
 </html>`, port)
 }
 
+// solAllowedActions is the whitelist of action strings the SOL bridge will
+// accept. Any action not in this map is rejected before being sent to the
+// browser.
+var solAllowedActions = map[string]bool{
+	"sol_getAddress": true,
+	"sol_getBalance": true,
+	"sol_sendTx":     true,
+}
+
+// sendSol sends a bridge request after validating the action against the SOL
+// whitelist.
+func (b *BridgeServer) sendSol(req BridgeRequest) (BridgeResponse, error) {
+	if !solAllowedActions[req.Action] {
+		return BridgeResponse{}, fmt.Errorf("bridge: unknown SOL action: %s", req.Action)
+	}
+	return b.Send(req)
+}
+
 // SolGetBalance returns the SOL balance in lamports for the given pubkey.
 func (b *BridgeServer) SolGetBalance(pubkey string) (uint64, error) {
 	params, _ := json.Marshal(map[string]string{"pubkey": pubkey})
-	resp, err := b.Send(BridgeRequest{ID: newReqID(), Action: "sol_getBalance", Params: params})
+	resp, err := b.sendSol(BridgeRequest{ID: newReqID(), Action: "sol_getBalance", Params: params})
 	if err != nil {
 		return 0, err
 	}
@@ -86,7 +106,7 @@ func (b *BridgeServer) SolGetBalance(pubkey string) (uint64, error) {
 // Returns the transaction signature.
 func (b *BridgeServer) SolSendTransaction(txBase64 string) (string, error) {
 	params, _ := json.Marshal(map[string]string{"txBase64": txBase64})
-	resp, err := b.Send(BridgeRequest{ID: newReqID(), Action: "sol_sendTx", Params: params})
+	resp, err := b.sendSol(BridgeRequest{ID: newReqID(), Action: "sol_sendTx", Params: params})
 	if err != nil {
 		return "", err
 	}

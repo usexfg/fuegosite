@@ -3,25 +3,41 @@ package app
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // FuegoClient talks to a fuegod node via JSON-RPC.
 type FuegoClient struct {
-	endpoint string
-	client   *http.Client
+	endpoint     string
+	client       *http.Client
+	fetchLimiter *rate.Limiter // max 10 FetchAll calls/second
+	authHeader   string        // non-empty when Basic Auth is configured
 }
 
 func NewFuegoClient(endpoint string) *FuegoClient {
 	return &FuegoClient{
-		endpoint: endpoint,
-		client:   &http.Client{Timeout: 10 * time.Second},
+		endpoint:     endpoint,
+		client:       &http.Client{Timeout: 10 * time.Second},
+		fetchLimiter: rate.NewLimiter(rate.Every(time.Second/10), 10), // 10 calls/s
 	}
+}
+
+// NewFuegoClientAuth creates a FuegoClient that attaches HTTP Basic Auth to
+// every request. Pass empty strings to skip authentication.
+func NewFuegoClientAuth(endpoint, username, password string) *FuegoClient {
+	fc := NewFuegoClient(endpoint)
+	if username != "" || password != "" {
+		fc.authHeader = "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+password))
+	}
+	return fc
 }
 
 // --- RPC response types (mirror CoreRpcServerCommandsDefinitions.h) ---
@@ -189,7 +205,11 @@ type AllPairData struct {
 
 // FetchAll fetches offers, prices, and trades for the given pairs in parallel,
 // plus CD market offers and price stats.
+// It is rate-limited to 10 calls/second to prevent flooding the daemon.
 func (c *FuegoClient) FetchAll(pairs []uint8) (*AllPairData, error) {
+	if !c.fetchLimiter.Allow() {
+		return nil, fmt.Errorf("FetchAll: rate limit exceeded (max 10/s)")
+	}
 	data := &AllPairData{
 		Offers:   make(map[uint8][]SwapOffer),
 		Prices:   make(map[uint8]*SwapPriceResponse),
@@ -313,11 +333,24 @@ func (c *FuegoClient) post(path string, reqBody interface{}, result interface{})
 		body = bytes.NewReader(data)
 	}
 
-	resp, err := c.client.Post(c.endpoint+path, "application/json", body)
+	req, err := http.NewRequest(http.MethodPost, c.endpoint+path, body)
+	if err != nil {
+		return fmt.Errorf("build request %s: %w", path, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.authHeader != "" {
+		req.Header.Set("Authorization", c.authHeader)
+	}
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request %s: %w", path, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("rpc: server returned %d %s", resp.StatusCode, resp.Status)
+	}
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {

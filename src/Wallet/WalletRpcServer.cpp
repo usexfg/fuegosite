@@ -32,6 +32,7 @@
 #include "SwapDaemon/AdaptorSwap.h"
 #include "CryptoNoteCore/CryptoNoteBasic.h"
 #include "CryptoNoteCore/CryptoNoteBasicImpl.h"
+#include "CryptoNoteCore/DepositCommitment.h"
 #include "WalletLegacy/WalletHelper.h"
 #include "Common/Base58.h"
 #include "Common/CommandLine.h"
@@ -296,17 +297,24 @@ bool wallet_rpc_server::on_initiate_swap(const wallet_rpc::COMMAND_RPC_INITIATE_
 }
 //------------------------------------------------------------------------------------------------------------------------------
 bool wallet_rpc_server::on_complete_swap(const wallet_rpc::COMMAND_RPC_COMPLETE_SWAP::request& req, wallet_rpc::COMMAND_RPC_COMPLETE_SWAP::response& res) {
-  // complete_swap is handled by SwapDaemon (M5) which maintains full session state.
-  // The wallet RPC exposes this as a thin stub; SwapDaemon calls it after aggregating.
-  throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
-    "complete_swap requires SwapDaemon session state. Use /processswap via fuegod RPC (M5).");
+  // TODO: requires SwapDaemon IPC channel
+  // complete_swap needs full MuSig2 session state that lives in SwapDaemon (M5).
+  // The wallet RPC layer does not have a wired IPC path to SwapDaemon yet.
+  // Use /processswap via fuegod RPC until the IPC channel is implemented.
+  (void)req;
+  res.txHash = "";
+  res.status = "not yet implemented — SwapDaemon IPC not wired";
   return true;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 bool wallet_rpc_server::on_refund_swap(const wallet_rpc::COMMAND_RPC_REFUND_SWAP::request& req, wallet_rpc::COMMAND_RPC_REFUND_SWAP::response& res) {
-  // refund_swap is handled by SwapDaemon (M5) which maintains full session state.
-  throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
-    "refund_swap requires SwapDaemon session state. Use /refundswap via fuegod RPC (M5).");
+  // TODO: requires SwapDaemon IPC channel
+  // refund_swap needs full MuSig2 session state that lives in SwapDaemon (M5).
+  // The wallet RPC layer does not have a wired IPC path to SwapDaemon yet.
+  // Use /refundswap via fuegod RPC until the IPC channel is implemented.
+  (void)req;
+  res.txHash = "";
+  res.status = "not yet implemented — SwapDaemon IPC not wired";
   return true;
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -753,10 +761,28 @@ bool wallet_rpc_server::on_create_cd(const wallet_rpc::COMMAND_RPC_CREATE_CD::re
       throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR, "term must be > 0");
     }
 
+    // Validate deposit_type: only HEAT=0x08, xCD=0xCD, YIELD=0x07 are permitted
+    static const std::initializer_list<uint32_t> validDepositTypes = {0x07, 0x08, 0xCD};
+    bool typeValid = false;
+    for (uint32_t v : validDepositTypes) {
+      if (req.deposit_type == v) { typeValid = true; break; }
+    }
+    if (!typeValid) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
+          "deposit_type must be one of: 0x07 (YIELD), 0x08 (HEAT), 0xCD (xCD)");
+    }
+
+    // Map wire deposit_type to internal CommitmentType
+    CryptoNote::CommitmentType commitType =
+        (req.deposit_type == 0x08) ? CryptoNote::CommitmentType::HEAT :
+        (req.deposit_type == 0x07) ? CryptoNote::CommitmentType::YIELD :
+                                     CryptoNote::CommitmentType::COLD;
+    CryptoNote::DepositCommitment commitment(commitType, Crypto::Hash{});
+
     std::string txHash;
     CryptoNote::IWallet* iwallet = static_cast<CryptoNote::IWallet*>(wg);
     std::string addr = iwallet->getAddress(0);
-    iwallet->createDeposit(req.amount, static_cast<uint64_t>(req.term), addr, addr, txHash);
+    iwallet->createDeposit(req.amount, static_cast<uint64_t>(req.term), addr, addr, txHash, commitment);
 
     // Deposit ID is the new last index after creation
     size_t depositId = iwallet->getWalletDepositCount() - 1;
@@ -817,23 +843,28 @@ bool wallet_rpc_server::on_rollover_cd(const wallet_rpc::COMMAND_RPC_ROLLOVER_CD
     uint32_t newTerm = (req.new_term == 0) ? dep.term : req.new_term;
     std::string txHash;
 
-    // rolloverDeposit requires CommitmentIndex from the Core layer.
-    // WalletRpcServer does not currently have Core access — this must be called
-    // from a walletd instance that is co-located with the daemon (not remote).
-    // TODO: expose CommitmentIndex via INode interface to remove this limitation.
-    throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
-      "rollover_cd requires Core access not yet exposed via INode. "
-      "Use the daemon /rollover_deposit RPC endpoint instead.");
-    (void)wg; (void)newTerm; (void)txHash;
+    // Obtain accumulated CD interest via INode (delegates to CommitmentIndex in the Core).
+    uint32_t currentHeight = m_node.getLastLocalBlockHeight();
+    uint64_t interest = 0;
+    std::error_code ec = m_node.getCdInterest(dep.amount, dep.height, currentHeight, interest);
+    if (ec) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
+                                  "getCdInterest failed: " + ec.message());
+    }
+
+    if (!wg->rolloverDeposit(depId, newTerm, interest, txHash)) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR,
+                                  "rolloverDeposit failed");
+    }
 
     // Get new deposit info (last created)
     size_t newDepId = m_wallet.getDepositCount() - 1;
     CryptoNote::Deposit newDep;
     m_wallet.getDeposit(static_cast<CryptoNote::DepositId>(newDepId), newDep);
 
-    res.tx_hash   = txHash;
+    res.tx_hash    = txHash;
     res.new_amount = newDep.amount;
-    res.status    = WALLET_RPC_STATUS_OK;
+    res.status     = WALLET_RPC_STATUS_OK;
   } catch (const JsonRpc::JsonRpcError&) {
     throw;
   } catch (const std::exception& e) {
@@ -852,10 +883,6 @@ bool wallet_rpc_server::on_estimate_cd_yield(const wallet_rpc::COMMAND_RPC_ESTIM
       ? m_node.getLastLocalBlockHeight()
       : req.current_height;
 
-    // Delegate to daemon RPC for yield estimation (requires CommitmentIndex access)
-    // Wallet layer proxies through the node's local blockchain height
-    // For a full implementation, Core::calculateCdInterest should be exposed via INode
-    // For now, return a conservative estimate based on height difference
     uint32_t heightDiff = (currentHeight > req.creation_height)
       ? (currentHeight - req.creation_height) : 0;
 
@@ -865,9 +892,16 @@ bool wallet_rpc_server::on_estimate_cd_yield(const wallet_rpc::COMMAND_RPC_ESTIM
       : static_cast<uint32_t>(CryptoNote::parameters::EPOCH_DURATION_BLOCKS);
 
     res.effective_epochs = heightDiff / epochDuration;
-    // Interest rate estimate: conservative placeholder (actual rate from CommitmentIndex)
-    // A proper implementation requires INode to expose getCommitmentIndex()
-    res.estimated_interest = 0;  // Will be non-zero once INode exposes CommitmentIndex
+
+    // Delegate to INode which in turn calls CommitmentIndex via Core.
+    uint64_t interest = 0;
+    std::error_code ec = m_node.getCdInterest(req.amount, req.creation_height,
+                                               currentHeight, interest);
+    if (ec) {
+      throw JsonRpc::JsonRpcError(WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR,
+                                  "getCdInterest failed: " + ec.message());
+    }
+    res.estimated_interest = interest;
     res.status = WALLET_RPC_STATUS_OK;
   } catch (const JsonRpc::JsonRpcError&) {
     throw;

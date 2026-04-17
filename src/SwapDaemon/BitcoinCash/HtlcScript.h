@@ -23,17 +23,17 @@ class BchHtlcScript {
 public:
   // Create the HTLC redeem script.
   //
-  // Claim path: provide preimage where HASH160(preimage) == hashLock, sign with recipientPubKey
+  // Claim path: provide preimage where SHA256(preimage) == hashLock, sign with recipientPubKey
   // Refund path: after timeoutBlock, sign with senderPubKey
   //
   // Script:
   //   OP_IF
-  //     OP_HASH160 <hash_lock_ripemd160> OP_EQUALVERIFY <recipient_pubkey> OP_CHECKSIG
+  //     OP_SHA256 <hash_lock_sha256> OP_EQUALVERIFY <recipient_pubkey> OP_CHECKSIG
   //   OP_ELSE
   //     <timeout_block> OP_CHECKLOCKTIMEVERIFY OP_DROP <sender_pubkey> OP_CHECKSIG
   //   OP_ENDIF
   static std::vector<uint8_t> createRedeemScript(
-      const std::vector<uint8_t>& hashLockRipemd160,  // 20 bytes: RIPEMD160(SHA256(preimage))
+      const std::vector<uint8_t>& hashLockSha256,     // 32 bytes: SHA256(preimage)
       const std::vector<uint8_t>& recipientPubKey,     // 33 bytes: compressed public key
       const std::vector<uint8_t>& senderPubKey,        // 33 bytes: compressed public key
       uint32_t timeoutBlock);
@@ -97,6 +97,12 @@ public:
   static std::vector<uint8_t> hexToBytes(const std::string& hex);
   static std::string bytesToHex(const std::vector<uint8_t>& bytes);
 
+  // Build a P2PKH scriptPubKey: OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+  static std::vector<uint8_t> buildP2pkhScriptPubKey(const std::vector<uint8_t>& pubKeyHash);
+
+  // Build a P2SH scriptPubKey: OP_HASH160 <hash> OP_EQUAL
+  static std::vector<uint8_t> buildP2shScriptPubKey(const std::vector<uint8_t>& scriptHash);
+
 private:
   // Push data onto script with correct length prefix
   static void pushData(std::vector<uint8_t>& script, const std::vector<uint8_t>& data);
@@ -109,12 +115,6 @@ private:
   // Decode a Base58Check address to extract the hash (20 bytes) and version byte
   static bool decodeAddress(const std::string& address, uint8_t& version,
                             std::vector<uint8_t>& hash);
-
-  // Build a P2PKH scriptPubKey: OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
-  static std::vector<uint8_t> buildP2pkhScriptPubKey(const std::vector<uint8_t>& pubKeyHash);
-
-  // Build a P2SH scriptPubKey: OP_HASH160 <hash> OP_EQUAL
-  static std::vector<uint8_t> buildP2shScriptPubKey(const std::vector<uint8_t>& scriptHash);
 
   // Serialize a Bitcoin varint (CompactSize)
   static void writeVarInt(std::vector<uint8_t>& out, uint64_t n);
@@ -131,7 +131,8 @@ namespace OpCode {
   constexpr uint8_t OP_DUP       = 0x76;
   constexpr uint8_t OP_EQUAL     = 0x87;
   constexpr uint8_t OP_EQUALVERIFY = 0x88;
-  constexpr uint8_t OP_HASH160   = 0xA9;
+  constexpr uint8_t OP_SHA256    = 0xA8;  // single SHA256 — used in HTLC hash lock
+  constexpr uint8_t OP_HASH160   = 0xA9;  // RIPEMD160(SHA256) — used in P2PKH/P2SH only
   constexpr uint8_t OP_CHECKSIG  = 0xAC;
   constexpr uint8_t OP_CHECKLOCKTIMEVERIFY = 0xB1;
   constexpr uint8_t OP_PUSHDATA1 = 0x4C;

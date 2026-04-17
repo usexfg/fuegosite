@@ -32,7 +32,7 @@ struct AliasEntry {
   std::string ownerAddress;     // Always empty — not stored on-chain. Use addressHash for privacy-preserving lookup.
   Crypto::Hash aliasHash;       // cn_fast_hash(alias) for fast lookup
   Crypto::Hash addressHash;     // cn_fast_hash(address) for privacy
-  uint8_t aliasType = 0;        // 0 = Elderfier [A-Z0-9&], 1 = Regular [a-z0-9&]
+  uint8_t aliasType = 1;        // 0 = Elderfier [A-Z0-9&], 1 = Regular [a-z0-9&]
   uint32_t registeredBlock = 0;
 };
 
@@ -43,13 +43,17 @@ public:
 
   // Registration
   bool registerAlias(const AliasEntry& entry);
-  bool voidAlias(const std::string& ownerAddress);
 
   // Queries
   bool aliasExists(const std::string& alias) const;
+  // Legacy string-address overloads (hash address as base58 string — v1 scheme).
+  // Prefer the Hash overloads below for new code (v2 scheme: hash spend+view bytes).
   bool addressHasAlias(const std::string& address) const;
-  std::optional<AliasEntry> getAliasByName(const std::string& alias) const;
   std::optional<AliasEntry> getAliasByAddress(const std::string& address) const;
+  // v2 hash-based overloads: caller computes cn_fast_hash(spendKey||viewKey).
+  bool addressHasAliasByHash(const Crypto::Hash& addrHash) const;
+  std::optional<AliasEntry> getAliasByAddressHash(const Crypto::Hash& addrHash) const;
+  std::optional<AliasEntry> getAliasByName(const std::string& alias) const;
   std::vector<AliasEntry> getAllAliases() const;
 
   // State

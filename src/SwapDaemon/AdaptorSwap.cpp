@@ -75,15 +75,13 @@ bool adaptor_generate_adaptor(SwapParams& params,
       reinterpret_cast<const unsigned char*>(&params.adaptorSecret),
       &P_p3);
 
-  // We need Q as a PublicKey for the DLEQ proof, but the proof is generated
-  // internally.  The caller passes Q alongside T and proof to the peer.
-  Crypto::PublicKey Q;
-  ge_tobytes(reinterpret_cast<unsigned char*>(&Q), &Q_p2);
+  // The caller passes Q (params.adaptorDleqQ) alongside T and proof to the peer.
+  ge_tobytes(reinterpret_cast<unsigned char*>(&params.adaptorDleqQ), &Q_p2);
 
   return Crypto::generate_dleq_proof(
       dleq_base_point,
       params.adaptorPoint,  // A = t*G
-      Q,                     // B = t*P
+      params.adaptorDleqQ,  // B = t*P
       params.adaptorSecret,
       params.adaptorDleqProof);
 }
@@ -137,8 +135,13 @@ bool adaptor_session_init(SwapParams& params,
   return true;
 }
 
-void adaptor_partial_sign(SwapParams& params) {
-  Crypto::musig2_partial_sign(
+bool adaptor_partial_sign(SwapParams& params) {
+  if (params.musig2.session.nonceSigned) {
+    // Nonce has already been consumed for this session. Signing again would
+    // reuse the same nonce, which leaks the private key in MuSig2.
+    return false;
+  }
+  return Crypto::musig2_partial_sign(
       params.musig2.session,
       params.musig2.keyAgg,
       params.musig2.ourSecNonce,   // zeroed after use
@@ -186,6 +189,14 @@ Crypto::Signature adaptor_aggregate(SwapParams& params, bool adapted) {
     sc_add(reinterpret_cast<unsigned char*>(&sig1.s),
            reinterpret_cast<const unsigned char*>(&sig1.s),
            reinterpret_cast<const unsigned char*>(&params.adaptorSecret));
+
+    // Zero the adaptor secret immediately after use to prevent it lingering
+    // in memory. volatile cast prevents the compiler from eliding the wipe.
+    volatile unsigned char* secret_ptr =
+        reinterpret_cast<volatile unsigned char*>(&params.adaptorSecret);
+    for (size_t i = 0; i < sizeof(params.adaptorSecret); ++i) {
+      secret_ptr[i] = 0;
+    }
   }
 
   Crypto::Signature final_sig;
@@ -195,12 +206,8 @@ Crypto::Signature adaptor_aggregate(SwapParams& params, bool adapted) {
 
 bool adaptor_extract_secret(SwapParams& params,
                             const Crypto::Signature& on_chain_sig) {
-  // The on-chain aggregate response r = s0 + s1_adapted
-  // We know s0 (Alice's partial) and s1 (Bob's unadapted partial).
-  // s1_adapted = s1 + t  =>  t = (r - s0) - s1
-
-  // First recover s1_adapted = r_aggregate - s0
   Crypto::EllipticCurveScalar s0, s1;
+
   if (params.role == SwapRole::ALICE) {
     s0 = params.musig2.ourPartialSig.s;
     s1 = params.musig2.peerPartialSig.s;
@@ -209,18 +216,15 @@ bool adaptor_extract_secret(SwapParams& params,
     s1 = params.musig2.ourPartialSig.s;
   }
 
-  // s1_adapted = aggregate_r - s0
   Crypto::EllipticCurveScalar s1_adapted;
   sc_sub(reinterpret_cast<unsigned char*>(&s1_adapted),
-         on_chain_sig.data + 32,  // aggregate response scalar
+         on_chain_sig.data + 32,
          reinterpret_cast<const unsigned char*>(&s0));
 
-  // t = s1_adapted - s1
   sc_sub(reinterpret_cast<unsigned char*>(&params.adaptorSecret),
          reinterpret_cast<const unsigned char*>(&s1_adapted),
          reinterpret_cast<const unsigned char*>(&s1));
 
-  // Verify t is nonzero
   return sc_isnonzero(
       reinterpret_cast<const unsigned char*>(&params.adaptorSecret)) != 0;
 }

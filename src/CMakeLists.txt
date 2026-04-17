@@ -215,6 +215,8 @@ target_link_libraries(Logging PUBLIC ${Boost_LIBRARIES})
 add_library(NodeRpcProxy STATIC ${NodeRpcProxy})
 
 # Swap core library: shared by libRpc and the xfg-swap binary
+# Active sources: adaptor-signature atomic swaps (v1)
+# Pool sources are deferred to v11 — see src/SwapDaemon/pool_v11/README.md
 add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapTypes.cpp
     SwapDaemon/SwapStateMachine.cpp
@@ -226,12 +228,13 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapP2P.cpp
     SwapDaemon/FuegoRpcClient.cpp
     SwapDaemon/PriceOracle.cpp
-    SwapDaemon/PoolTypes.cpp
-    SwapDaemon/PoolAMM.cpp
-    SwapDaemon/PoolAttestation.cpp
-    SwapDaemon/PoolOrganizer.cpp
-    SwapDaemon/PoolP2P.cpp
-    SwapDaemon/PoolDatabase.cpp
+    # v11: pool trading — sources moved to SwapDaemon/pool_v11/, not compiled in v1
+    # SwapDaemon/pool_v11/PoolTypes.cpp
+    # SwapDaemon/pool_v11/PoolAMM.cpp
+    # SwapDaemon/pool_v11/PoolAttestation.cpp
+    # SwapDaemon/pool_v11/PoolOrganizer.cpp
+    # SwapDaemon/pool_v11/PoolP2P.cpp
+    # SwapDaemon/pool_v11/PoolDatabase.cpp
     SwapDaemon/Monero/MoneroRpcClient.cpp
     SwapDaemon/Monero/AdaptorSignature.cpp
     SwapDaemon/Ethereum/EthRpcClient.cpp
@@ -239,13 +242,17 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/BitcoinCash/BchRpcClient.cpp
     SwapDaemon/BitcoinCash/HtlcScript.cpp
     SwapDaemon/Solana/SolRpcClient.cpp
+    SwapDaemon/Crypto/Secp256k1Signer.cpp
+    SwapDaemon/Crypto/RlpEncoder.cpp
+    SwapDaemon/Crypto/Bip143Sighash.cpp
+    SwapDaemon/ChainClientConfig.cpp
 )
 target_include_directories(SwapDaemonLib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/SwapDaemon
 )
-target_link_libraries(SwapDaemonLib PUBLIC Common Crypto Serialization CryptoNoteCore OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(SwapDaemonLib PUBLIC Common Crypto Serialization CryptoNoteCore OpenSSL::SSL OpenSSL::Crypto secp256k1)
 target_include_directories(SwapDaemonLib SYSTEM PUBLIC ${JSONCPP_INCLUDE_DIRS})
 
 # SwapDaemon unit test: adaptor_aggregate ↔ extract_secret roundtrip
@@ -320,7 +327,9 @@ add_executable(SimpleWallet ${SimpleWallet} SimpleWallet/main.cpp)
 add_executable(PaymentGateService ${PaymentGateService})
 add_executable(Optimizer ${Optimizer})
 
-# Swap Daemon executable (xfg-swap)
+# Swap Daemon executable (xfg-swap) — active v1 atomic swap sources only
+# v11 pool trading sources are in SwapDaemon/pool_v11/ and excluded here.
+# See src/SwapDaemon/pool_v11/README.md for reintegration instructions.
 add_executable(SwapDaemon
     SwapDaemon/main.cpp
     SwapDaemon/AdaptorSwap.cpp
@@ -335,12 +344,17 @@ add_executable(SwapDaemon
     SwapDaemon/BitcoinCash/BchRpcClient.cpp
     SwapDaemon/BitcoinCash/HtlcScript.cpp
     SwapDaemon/Solana/SolRpcClient.cpp
-    SwapDaemon/PoolTypes.cpp
-    SwapDaemon/PoolAMM.cpp
-    SwapDaemon/PoolAttestation.cpp
-    SwapDaemon/PoolOrganizer.cpp
-    SwapDaemon/PoolP2P.cpp
-    SwapDaemon/PoolDatabase.cpp
+    SwapDaemon/Crypto/Secp256k1Signer.cpp
+    SwapDaemon/Crypto/RlpEncoder.cpp
+    SwapDaemon/Crypto/Bip143Sighash.cpp
+    SwapDaemon/ChainClientConfig.cpp
+    # v11: pool trading — sources moved to SwapDaemon/pool_v11/, not compiled in v1
+    # SwapDaemon/pool_v11/PoolTypes.cpp
+    # SwapDaemon/pool_v11/PoolAMM.cpp
+    # SwapDaemon/pool_v11/PoolAttestation.cpp
+    # SwapDaemon/pool_v11/PoolOrganizer.cpp
+    # SwapDaemon/pool_v11/PoolP2P.cpp
+    # SwapDaemon/pool_v11/PoolDatabase.cpp
 )
 
 # Add TestnetWallet executable (extends simple_wallet with testnet-specific commands)
@@ -488,6 +502,7 @@ target_link_libraries(SwapDaemon PRIVATE
     ${Boost_LIBRARIES}
     OpenSSL::SSL
     OpenSSL::Crypto
+    secp256k1
 )
 target_include_directories(SwapDaemon PRIVATE
     ${CMAKE_SOURCE_DIR}/src

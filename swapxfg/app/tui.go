@@ -80,6 +80,26 @@ func cursorBlink() tea.Cmd {
 	})
 }
 
+// statusUpdateMsg carries a plain status string back to Update() from a
+// tea.Cmd goroutine.  Using this instead of writing m.statusMsg directly
+// inside a goroutine eliminates the data race on the model field.
+type statusUpdateMsg struct{ text string }
+
+// ethConnectedMsg is returned by the MetaMask connect tea.Cmd once the
+// bridge has retrieved the wallet address and balance.
+type ethConnectedMsg struct {
+	addr string
+	bal  string
+	err  error
+}
+
+// bchConnectedMsg is returned by the BCH connect tea.Cmd once the
+// Electron Cash RPC has returned the balance.
+type bchConnectedMsg struct {
+	bal string
+	err error
+}
+
 func newTuiModel(cfg Config) tuiModel {
 	m := tuiModel{
 		cfg:        cfg,
@@ -95,7 +115,7 @@ func newTuiModel(cfg Config) tuiModel {
 		cursorOn: true,
 	}
 	if cfg.WalletRPC != "" {
-		m.wallet = NewWalletClient(cfg.WalletRPC)
+		m.wallet = NewWalletClientAuth(cfg.WalletRPC, cfg.WalletUser, cfg.WalletPass)
 	}
 	if !cfg.NoBch && cfg.BchRPC != "" {
 		m.bch = NewBchClient(cfg.BchRPC)
@@ -167,6 +187,26 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.blinkTick++
 		m.cursorOn = m.blinkTick%2 == 0
 		return m, cursorBlink()
+
+	case statusUpdateMsg:
+		m.statusMsg = msg.text
+
+	case ethConnectedMsg:
+		if msg.err != nil {
+			m.statusMsg = "MetaMask error: " + msg.err.Error()
+		} else {
+			m.ethAddr = msg.addr
+			m.ethBal = msg.bal
+			m.statusMsg = "MetaMask connected: " + msg.addr[:min(12, len(msg.addr))] + "..."
+		}
+
+	case bchConnectedMsg:
+		if msg.err != nil {
+			m.statusMsg = "BCH error: " + msg.err.Error()
+		} else {
+			m.bchBal = msg.bal
+			m.statusMsg = "BCH connected: " + msg.bal
+		}
 	}
 
 	return m, nil
@@ -195,9 +235,10 @@ func (m tuiModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.cmdFocus {
 		switch k {
 		case "enter":
-			m.handleCommand(m.cmdBuf)
+			cmd := m.handleCommand(m.cmdBuf)
 			m.cmdBuf = ""
 			m.cmdFocus = false
+			return m, cmd
 		case "backspace":
 			if len(m.cmdBuf) > 0 {
 				m.cmdBuf = m.cmdBuf[:len(m.cmdBuf)-1]
@@ -247,10 +288,16 @@ func (m tuiModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tuiModel) handleCommand(cmd string) {
+// handleCommand parses and dispatches a TUI command string, returning a
+// tea.Cmd for any asynchronous work that must not mutate model state directly.
+// Goroutines that previously wrote m.statusMsg / m.ethAddr / m.bchBal directly
+// have been converted to tea.Cmd functions that return typed messages handled
+// in Update().  Remaining single-field statusMsg goroutines are tagged below
+// with TODO comments for a follow-up conversion pass.
+func (m *tuiModel) handleCommand(cmd string) tea.Cmd {
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
-		return
+		return nil
 	}
 	parts := strings.Fields(cmd)
 	switch parts[0] {
@@ -267,7 +314,7 @@ func (m *tuiModel) handleCommand(cmd string) {
 		// Usage: initiate <alias_or_address> <amount_xfg> <pair>
 		if len(parts) < 4 {
 			m.statusMsg = "usage: initiate <alias_or_address> <amount> <pair>"
-			return
+			return nil
 		}
 		aliasOrAddr := parts[1]
 		// Resolve alias if needed
@@ -291,22 +338,30 @@ func (m *tuiModel) handleCommand(cmd string) {
 		// confirm <address> <amount_xfg> <pair> [role]
 		if len(parts) < 4 {
 			m.statusMsg = "usage: confirm <address> <amount_xfg> <pair> [role]"
-			return
+			return nil
 		}
 		if m.wallet == nil {
 			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
-			return
+			return nil
+		}
+		// Validate XFG/XMR-family address format before launching goroutine.
+		if err := validateAddress("xfg", parts[1]); err != nil {
+			m.statusMsg = "invalid address: " + err.Error()
+			return nil
 		}
 		m.statusMsg = "signing offer..."
-		go func(addr, amtStr, pair string) {
-			// Parse amount (simple float to atomic units)
-			var amt float64
-			fmt.Sscanf(amtStr, "%f", &amt)
-			xfgAtomic := uint64(amt * 1e7)
-			signed, err := m.wallet.SignOffer(xfgAtomic, 0, pairToID(pair), 144, true)
+		amtStr, pair := parts[2], parts[3]
+		wallet := m.wallet
+		client := m.client
+		return func() tea.Msg {
+			// Parse amount with bounds checking.
+			xfgAtomic, err := parseAmountAtomic(amtStr, 1e7)
 			if err != nil {
-				m.statusMsg = "sign_offer failed: " + err.Error()
-				return
+				return statusUpdateMsg{"invalid amount: " + err.Error()}
+			}
+			signed, err := wallet.SignOffer(xfgAtomic, 0, pairToID(pair), 144, true)
+			if err != nil {
+				return statusUpdateMsg{"sign_offer failed: " + err.Error()}
 			}
 			// Submit offer to daemon
 			offerReq := map[string]interface{}{
@@ -322,94 +377,93 @@ func (m *tuiModel) handleCommand(cmd string) {
 				"isSell":       true,
 			}
 			var submitResp struct{ Status string `json:"status"` }
-			if err := m.client.post("/submitswap", offerReq, &submitResp); err != nil {
-				m.statusMsg = "submit failed: " + err.Error()
-				return
+			if err := client.post("/submitswap", offerReq, &submitResp); err != nil {
+				return statusUpdateMsg{"submit failed: " + err.Error()}
 			}
-			m.statusMsg = "offer posted: " + signed.OfferID[:12] + "..."
-		}(parts[1], parts[2], parts[3])
+			return statusUpdateMsg{"offer posted: " + signed.OfferID[:12] + "..."}
+		}
 
 	case "swap":
 		// swap initiate <amount> <peer_pubkey> <pair> [role]
 		if len(parts) < 5 {
 			m.statusMsg = "usage: swap initiate <amount> <peer_pubkey> <pair> [role]"
-			return
+			return nil
 		}
 		if parts[1] != "initiate" {
 			m.statusMsg = "usage: swap initiate <amount> <peer_pubkey> <pair> [role]"
-			return
+			return nil
 		}
 		if m.wallet == nil {
 			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
-			return
+			return nil
 		}
-		go func(amtStr, peerPub, pair, role string) {
-			var amt float64
-			fmt.Sscanf(amtStr, "%f", &amt)
-			xfgAtomic := uint64(amt * 1e7)
-			result, err := m.wallet.InitiateSwap(xfgAtomic, peerPub, pair, role)
+		amtStr, peerPub, pair := parts[2], parts[3], parts[4]
+		role := "alice"
+		if len(parts) > 5 {
+			role = parts[5]
+		}
+		wallet := m.wallet
+		return func() tea.Msg {
+			xfgAtomic, err := parseAmountAtomic(amtStr, 1e7)
 			if err != nil {
-				m.statusMsg = "initiate_swap failed: " + err.Error()
-				return
+				return statusUpdateMsg{"invalid amount: " + err.Error()}
 			}
-			m.statusMsg = fmt.Sprintf("swap %s started | escrow: %s... | share: pubkey=%s nonce0=%s",
-				result.SwapID, result.EscrowKey[:12], result.OurPubKey[:12], result.Nonce0[:12])
-		}(parts[2], parts[3], parts[4], func() string {
-			if len(parts) > 5 {
-				return parts[5]
+			result, err := wallet.InitiateSwap(xfgAtomic, peerPub, pair, role)
+			if err != nil {
+				return statusUpdateMsg{"initiate_swap failed: " + err.Error()}
 			}
-			return "alice"
-		}())
+			return statusUpdateMsg{fmt.Sprintf("swap %s started | escrow: %s... | share: pubkey=%s nonce0=%s",
+				result.SwapID, result.EscrowKey[:12], result.OurPubKey[:12], result.Nonce0[:12])}
+		}
 
 	case "connect":
-		// connect metamask | connect phantom
+		// connect metamask | connect phantom | connect bch
 		if len(parts) < 2 {
 			m.statusMsg = "usage: connect metamask | connect phantom"
-			return
+			return nil
 		}
 		if m.bridge == nil {
 			m.statusMsg = "bridge not running (start with --bridge-port or omit --no-bridge)"
-			return
+			return nil
 		}
 		switch parts[1] {
 		case "metamask":
 			if err := m.bridge.OpenEthBridge(); err != nil {
 				m.statusMsg = "open eth bridge: " + err.Error()
-				return
+				return nil
 			}
 			m.statusMsg = fmt.Sprintf("MetaMask bridge at %s — open it in your browser", m.bridge.EthURL())
-			go func() {
-				if addr, err := m.bridge.EthGetAddress(); err == nil {
-					m.ethAddr = addr
-					if bal, err2 := m.bridge.EthGetBalance(addr); err2 == nil {
-						m.ethBal = bal
-					}
-					m.statusMsg = "MetaMask connected: " + addr[:min(12, len(addr))] + "..."
+			bridge := m.bridge
+			return func() tea.Msg {
+				addr, err := bridge.EthGetAddress()
+				if err != nil {
+					return ethConnectedMsg{err: err}
 				}
-			}()
+				bal, _ := bridge.EthGetBalance(addr)
+				return ethConnectedMsg{addr: addr, bal: bal}
+			}
 		case "phantom":
 			if err := m.bridge.OpenSolBridge(); err != nil {
 				m.statusMsg = "open sol bridge: " + err.Error()
-				return
+				return nil
 			}
 			m.statusMsg = fmt.Sprintf("Phantom bridge at %s — open it in your browser", m.bridge.SolURL())
 		case "bch":
 			if m.bch == nil {
 				m.statusMsg = "BCH not configured (use --bch-rpc <endpoint>)"
-				return
+				return nil
 			}
-			go func() {
-				if m.bch.IsConnected() {
-					if bal, err := m.bch.GetBalance(); err == nil {
-						m.bchBal = FormatBchBalance(bal)
-						m.statusMsg = "BCH connected: " + m.bchBal
-					} else {
-						m.statusMsg = "BCH connected but balance error: " + err.Error()
-					}
-				} else {
-					m.statusMsg = "BCH: cannot connect to Electron Cash at " + m.bch.endpoint
+			bch := m.bch
+			return func() tea.Msg {
+				if !bch.IsConnected() {
+					return bchConnectedMsg{err: fmt.Errorf("cannot connect to Electron Cash at %s", bch.endpoint)}
 				}
-			}()
+				bal, err := bch.GetBalance()
+				if err != nil {
+					return bchConnectedMsg{err: fmt.Errorf("balance error: %w", err)}
+				}
+				return bchConnectedMsg{bal: FormatBchBalance(bal)}
+			}
 		default:
 			m.statusMsg = "usage: connect metamask | connect phantom | connect bch"
 		}
@@ -420,80 +474,61 @@ func (m *tuiModel) handleCommand(cmd string) {
 		// bch refund <htlc_txid> <htlc_vout>
 		if len(parts) < 2 {
 			m.statusMsg = "usage: bch lock|claim|refund ..."
-			return
+			return nil
 		}
 		if m.bch == nil {
 			m.statusMsg = "BCH not configured (use --bch-rpc or connect bch)"
-			return
+			return nil
 		}
 		switch parts[1] {
 		case "lock":
 			if len(parts) < 6 {
 				m.statusMsg = "usage: bch lock <amount_bch> <hashlock_hex> <timeout_blocks> <counterparty_bch_addr>"
-				return
+				return nil
 			}
-			amtBCH, hashlock, timeoutBlocks, counterpartyAddr := parts[2], parts[3], parts[4], parts[5]
-			go func(amt, hl, tbl, cAddr string) {
-				// Get the P2SH HTLC address from SwapDaemon via fuegod (SwapDaemon builds
-				// the HTLC script and exposes the P2SH address as part of initiating a BCH swap).
-				// For now we use the counterparty address directly as a placeholder until
-				// SwapDaemon has a /getbchhtlcaddress endpoint.
-				_ = hl
-				_ = tbl
-				txHex, err := m.bch.PayTo(cAddr, amt)
-				if err != nil {
-					m.statusMsg = "bch lock (payto) failed: " + err.Error()
-					return
-				}
-				txid, err := m.bch.BroadcastTx(txHex)
-				if err != nil {
-					m.statusMsg = "bch lock (broadcast) failed: " + err.Error()
-					return
-				}
-				m.statusMsg = fmt.Sprintf("bch lock tx: %s... (%.8s BCH to %s)", txid[:min(16, len(txid))], amt, cAddr[:min(12, len(cAddr))])
-			}(amtBCH, hashlock, timeoutBlocks, counterpartyAddr)
+			_, _, _, _ = parts[2], parts[3], parts[4], parts[5]
+			m.statusMsg = fmt.Errorf("bch lock: not yet implemented — SwapDaemon must expose an HTLC P2SH address endpoint first").Error()
 
 		case "claim":
 			if len(parts) < 5 {
 				m.statusMsg = "usage: bch claim <htlc_txid> <htlc_vout> <preimage_hex>"
-				return
+				return nil
 			}
-			htlcTxid, htlcVout, preimage := parts[2], parts[3], parts[4]
-			go func(txid, vout, pre string) {
-				// SwapDaemon (via /processswap) builds the claim tx using C++ HtlcScript.
-				// Trigger processSwap then broadcast the resulting tx.
+			txid, vout, pre := parts[2], parts[3], parts[4]
+			client := m.client
+			// TODO: remaining goroutines need tea.Cmd conversion
+			return func() tea.Msg {
 				var processResp struct {
 					Advanced bool   `json:"advanced"`
 					NewState string `json:"new_state"`
 					Status   string `json:"status"`
 				}
 				req := map[string]interface{}{"swap_id": txid + ":" + vout}
-				if err := m.client.post("/processswap", req, &processResp); err != nil {
-					m.statusMsg = "bch claim (processswap) failed: " + err.Error()
-					return
+				if err := client.post("/processswap", req, &processResp); err != nil {
+					return statusUpdateMsg{"bch claim (processswap) failed: " + err.Error()}
 				}
 				if processResp.Advanced {
-					m.statusMsg = fmt.Sprintf("bch claim: swap advanced → %s (preimage: %s...)", processResp.NewState, pre[:min(8, len(pre))])
-				} else {
-					m.statusMsg = "bch claim: swap not yet advanceable (check chain state)"
+					return statusUpdateMsg{fmt.Sprintf("bch claim: swap advanced → %s (preimage: %s...)", processResp.NewState, pre[:min(8, len(pre))])}
 				}
-			}(htlcTxid, htlcVout, preimage)
+				return statusUpdateMsg{"bch claim: swap not yet advanceable (check chain state)"}
+			}
 
 		case "refund":
 			if len(parts) < 4 {
 				m.statusMsg = "usage: bch refund <htlc_txid> <htlc_vout>"
-				return
+				return nil
 			}
-			htlcTxid, htlcVout := parts[2], parts[3]
-			go func(txid, vout string) {
+			txid, vout := parts[2], parts[3]
+			client := m.client
+			// TODO: remaining goroutines need tea.Cmd conversion
+			return func() tea.Msg {
 				var refundResp struct{ Status string `json:"status"` }
 				req := map[string]interface{}{"swap_id": txid + ":" + vout}
-				if err := m.client.post("/refundswap", req, &refundResp); err != nil {
-					m.statusMsg = "bch refund failed: " + err.Error()
-					return
+				if err := client.post("/refundswap", req, &refundResp); err != nil {
+					return statusUpdateMsg{"bch refund failed: " + err.Error()}
 				}
-				m.statusMsg = "bch refund: " + refundResp.Status
-			}(htlcTxid, htlcVout)
+				return statusUpdateMsg{"bch refund: " + refundResp.Status}
+			}
 
 		default:
 			m.statusMsg = "usage: bch lock|claim|refund ..."
@@ -503,64 +538,80 @@ func (m *tuiModel) handleCommand(cmd string) {
 		// eth lock <amount_eth> <htlc_contract> <hashlock> <timeout>
 		if len(parts) < 5 || parts[1] != "lock" {
 			m.statusMsg = "usage: eth lock <amount_wei> <htlc_contract> <hashlock> <timeout_hex>"
-			return
+			return nil
 		}
 		if m.bridge == nil || !m.bridge.IsConnected() {
 			m.statusMsg = "MetaMask not connected (try: connect metamask)"
-			return
+			return nil
 		}
 		amtWei, htlcAddr, hashlock, timeout := parts[2], parts[3], parts[4], ""
 		if len(parts) > 5 {
 			timeout = parts[5]
 		}
-		// calldata: lock(bytes32 hashlock, uint256 timeout)
-		calldata := "0x" + hashlock + timeout
-		go func(to, value, data string) {
-			txHash, err := m.bridge.EthSendTransaction(to, value, data)
+		if err := validateETHAddress(htlcAddr); err != nil {
+			m.statusMsg = "invalid HTLC contract address: " + err.Error()
+			return nil
+		}
+		if _, err := parseAmount(amtWei); err != nil {
+			m.statusMsg = "invalid amount: " + err.Error()
+			return nil
+		}
+		calldata, calldataErr := buildHTLCLockCalldata(hashlock, timeout)
+		if calldataErr != nil {
+			m.statusMsg = "eth calldata error: " + calldataErr.Error()
+			return nil
+		}
+		bridge := m.bridge
+		// TODO: remaining goroutines need tea.Cmd conversion
+		return func() tea.Msg {
+			txHash, err := bridge.EthSendTransaction(htlcAddr, amtWei, calldata)
 			if err != nil {
-				m.statusMsg = "eth lock failed: " + err.Error()
-				return
+				return statusUpdateMsg{"eth lock failed: " + err.Error()}
 			}
-			m.statusMsg = "eth lock tx: " + txHash[:min(20, len(txHash))] + "..."
-		}(htlcAddr, amtWei, calldata)
+			return statusUpdateMsg{"eth lock tx: " + txHash[:min(20, len(txHash))] + "..."}
+		}
 
 	case "sell":
 		// sell cd <key_image> <ask_price_xfg>
 		if len(parts) < 4 || parts[1] != "cd" {
 			m.statusMsg = "usage: sell cd <key_image> <ask_price_xfg>"
-			return
+			return nil
 		}
 		if m.wallet == nil {
 			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
-			return
+			return nil
 		}
 		keyImage := parts[2]
-		var askF float64
-		fmt.Sscanf(parts[3], "%f", &askF)
-		askAtomic := uint64(askF * 1e7)
-		go func(ki string, ask uint64) {
+		askAtomic, err := parseAmountAtomic(parts[3], 1e7)
+		if err != nil {
+			m.statusMsg = "invalid ask price: " + err.Error()
+			return nil
+		}
+		// TODO: remaining goroutines need tea.Cmd conversion
+		return func() tea.Msg {
 			// wallet must sign the offer — stub until wallet endpoint added
-			m.statusMsg = fmt.Sprintf("sell cd: key_image=%s ask=%.7f XFG (signing not yet wired)", ki, float64(ask)/1e7)
-		}(keyImage, askAtomic)
+			return statusUpdateMsg{fmt.Sprintf("sell cd: key_image=%s ask=%.7f XFG (signing not yet wired)", keyImage, float64(askAtomic)/1e7)}
+		}
 
 	case "cancel":
 		// cancel <offer_id>
 		if len(parts) < 2 {
 			m.statusMsg = "usage: cancel <offer_id>"
-			return
+			return nil
 		}
 		if m.wallet == nil {
 			m.statusMsg = "no wallet connected"
-			return
+			return nil
 		}
 		offerID := parts[1]
-		go func(id string) {
-			if err := m.client.CancelCdOffer(id, "", ""); err != nil {
-				m.statusMsg = "cancel failed: " + err.Error()
-			} else {
-				m.statusMsg = "offer cancelled: " + id[:min(12, len(id))]
+		client := m.client
+		// TODO: remaining goroutines need tea.Cmd conversion
+		return func() tea.Msg {
+			if err := client.CancelCdOffer(offerID, "", ""); err != nil {
+				return statusUpdateMsg{"cancel failed: " + err.Error()}
 			}
-		}(offerID)
+			return statusUpdateMsg{"offer cancelled: " + offerID[:min(12, len(offerID))]}
+		}
 
 	case "accept":
 		// accept [offer_id]  — uses selected row if no arg
@@ -571,26 +622,32 @@ func (m *tuiModel) handleCommand(cmd string) {
 			offerID = o.OfferID
 		} else {
 			m.statusMsg = "usage: accept <offer_id> (or select a row in CD tab)"
-			return
+			return nil
+		}
+		if offerID == "" {
+			m.statusMsg = "No CD offer selected"
+			return nil
 		}
 		if m.wallet == nil {
 			m.statusMsg = "no wallet connected (use --wallet <endpoint>)"
-			return
+			return nil
 		}
-		go func(id string) {
-			resp, err := m.client.AcceptCdOffer(id, "")
+		client := m.client
+		// TODO: remaining goroutines need tea.Cmd conversion
+		return func() tea.Msg {
+			resp, err := client.AcceptCdOffer(offerID, "")
 			if err != nil {
-				m.statusMsg = "accept failed: " + err.Error()
-				return
+				return statusUpdateMsg{"accept failed: " + err.Error()}
 			}
-			m.statusMsg = fmt.Sprintf("partial tx ready (expires blk %d): %s...", resp.ExpiresAt, resp.PartialTx[:min(20, len(resp.PartialTx))])
-		}(offerID)
+			return statusUpdateMsg{fmt.Sprintf("partial tx ready (expires blk %d): %s...", resp.ExpiresAt, resp.PartialTx[:min(20, len(resp.PartialTx))])}
+		}
 
 	case "help":
 		m.statusMsg = "pair <name> | c: CD | connect metamask|phantom|bch | bch lock|claim|refund | eth lock | sell cd | accept [id] | initiate <alias> <amt> <pair> | confirm <addr> <amt> <pair> | q: quit"
 	default:
 		m.statusMsg = "unknown: " + cmd + " (type help)"
 	}
+	return nil
 }
 
 // pairToID converts a pair name string to its numeric ID.

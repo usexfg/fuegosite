@@ -104,12 +104,12 @@ static bool test_roundtrip() {
   }
 
   // Step 8 (Bob): adapt his partial sig by adding t, then aggregate.
-  // This is the signature that would be broadcast on-chain.
-  Crypto::Signature onChainSig = adaptor_aggregate(bob, /*adapted=*/true);
-
-  // Save the original adaptor secret before zeroing to verify extraction.
+  // Save the original adaptor secret BEFORE aggregating (aggregate zeroes it).
   Crypto::SecretKey originalT;
   std::memcpy(&originalT, &bob.adaptorSecret, sizeof(originalT));
+
+  // This is the signature that would be broadcast on-chain.
+  Crypto::Signature onChainSig = adaptor_aggregate(bob, /*adapted=*/true);
 
   // Step 9 (Alice): sees the on-chain sig, extracts t from it.
   // Alice has her own partial and Bob's unadapted partial (peerPartialSig).
@@ -168,12 +168,13 @@ static bool test_multiple_sessions_distinct_secrets() {
     return false;
   }
 
-  Crypto::Signature sig1 = adaptor_aggregate(b1, true);
-  Crypto::Signature sig2 = adaptor_aggregate(b2, true);
-
+  // Save originals BEFORE aggregate (which zeroes them)
   Crypto::SecretKey t1_orig, t2_orig;
   std::memcpy(&t1_orig, &b1.adaptorSecret, 32);
   std::memcpy(&t2_orig, &b2.adaptorSecret, 32);
+
+  Crypto::Signature sig1 = adaptor_aggregate(b1, true);
+  Crypto::Signature sig2 = adaptor_aggregate(b2, true);
 
   std::memset(&a1.adaptorSecret, 0, 32);
   std::memset(&a2.adaptorSecret, 0, 32);

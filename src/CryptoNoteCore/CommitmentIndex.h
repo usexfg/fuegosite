@@ -109,6 +109,8 @@ public:
                            uint64_t feesCollected, uint64_t totalLocked);
   uint64_t getEpochFeeRate(uint64_t epochNumber) const;
   uint64_t getEpochCount() const;
+  // Remove the most-recently recorded epoch fee rate (used by popBlock rollback).
+  void popEpochFeeRate();
 
   void storeEpochReport(const EpochReport& report);
   std::optional<EpochReport> getEpochReport(uint64_t epochNumber) const;
@@ -121,7 +123,8 @@ private:
 
   std::vector<uint64_t> m_epochFeeRates;
 
-  Crypto::Hash m_current_merkle_root;
+  mutable Crypto::Hash m_current_merkle_root;
+  mutable bool m_merkleDirty = true;
   uint64_t m_current_block_height = 0;
 
   std::map<uint64_t, uint64_t> m_blockBankingFees;
