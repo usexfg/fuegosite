@@ -19,9 +19,9 @@ func ethBridgeHTML(port int) string {
 <body style="background:#111;color:#eee;font-family:monospace;padding:24px">
 <h2 style="color:#FF5500">&#x26B3;&#xFE0F; swapxfg &middot; ETH bridge</h2>
 <p id="status">Connecting to swapxfg&hellip;</p>
-<script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"
         type="application/javascript"
-        integrity="sha384-KiZhooPaHFaFiXrJzCLPkiV6FwP5e3T1KxCPq0EAK5q6d2MkiLfYuA5KBqALqcX"
+        integrity="sha384-Htz1SE4Sl5aitpvFgr2j0sfsGUIuSXI6t8hEyrlQ93zflEF3a29bH2AvkUROUw7J"
         crossorigin="anonymous"></script>
 <script>
 const ws = new WebSocket("ws://127.0.0.1:%d/bridge/ws");
