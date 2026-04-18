@@ -261,6 +261,13 @@ add_executable(test_adaptor_roundtrip
 target_link_libraries(test_adaptor_roundtrip PRIVATE
     SwapDaemonLib Common Crypto OpenSSL::SSL OpenSSL::Crypto)
 
+# XMR claim/refund adaptor tests (spend-key combine behaviour)
+# Note: Path is relative from src/ directory
+add_executable(XmrClaimAdaptorTests
+    ../tests/SwapDaemon/XmrClaimAdaptorTests.cpp)
+target_link_libraries(XmrClaimAdaptorTests PRIVATE
+    SwapDaemonLib Common Crypto OpenSSL::SSL OpenSSL::Crypto)
+
 add_library(Rpc STATIC ${RPC_SOURCES})
 target_include_directories(Rpc PRIVATE ${CMAKE_SOURCE_DIR}/external/httplib)
 target_link_libraries(Rpc PUBLIC SwapDaemonLib)

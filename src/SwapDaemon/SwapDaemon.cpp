@@ -645,7 +645,8 @@ bool SwapDaemon::processSwap(const std::string& swapId) {
               MoneroTransferResult xmrResult;
               claimOk = m_xmrClient->claimAdaptor(
                   /*aliceSpendKeyHex=*/Common::podToHex(params.ourSwapSecKey),
-                  /*bobSpendKeyHex=*/Common::podToHex(params.adaptorSecret),
+                  /*bobSpendKeyHex=*/std::string(64, '0'),  // Zero Bob share (Alice's key not available yet)
+                  /*adaptorSecretHex=*/Common::podToHex(params.adaptorSecret),
                   /*viewKeyHex=*/"",  // TODO: persist XMR view key
                   params.ctrAddress,
                   xmrResult);
@@ -984,7 +985,8 @@ bool SwapDaemon::refund(const std::string& swapId) {
         } else {
           MoneroTransferResult xmrResult;
           ctrRefundOk = m_xmrClient->refundAdaptor(
-              Common::podToHex(params.ourSwapSecKey),
+              /*aliceShareHex=*/Common::podToHex(params.ourSwapSecKey),
+              /*bobShareHex=*/std::string(64, '0'),  // Zero peer share (needs actual value)
               /*viewKeyHex=*/"",  // TODO: persist XMR view key
               params.ctrAddress,
               xmrResult);

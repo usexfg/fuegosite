@@ -1255,55 +1255,6 @@ namespace CryptoNote
   }
 
 
-// Helper functions for handling gift_secret field
-  bool isDummyGiftSecret(const std::vector<uint8_t>& gift_secret)
-  {
-    if (gift_secret.size() != 32) {
-      return gift_secret.empty(); // Only empty or 32-byte patterns are valid
-    }
-
-    // Check if this looks like dummy data based on statistical patterns
-    // Real encrypted data should have roughly uniform distribution
-    if (gift_secret.size() != 32) {
-      return false; // Must be exactly 32 bytes
-    }
-
-    // Check for pattern that suggests deterministic dummy data
-    uint8_t patternCount = 0;
-    for (size_t i = 1; i < 32; ++i) {
-      if (gift_secret[i] == gift_secret[0]) {
-        patternCount++;
-      }
-    }
-
-    // If more than 50% of bytes are identical to the first byte, likely dummy
-    return patternCount > 16;
-  }
-
-  // Helper function to create dummy gift secret that resembles real encrypted data
-  std::vector<uint8_t> createDummyGiftSecret()
-  {
-    std::vector<uint8_t> dummy(32);
-
-    // Seed based on current time (microseconds mod prime) to create variation between dummy secrets
-    // but deterministic within the same run
-    static uint32_t dummyCounter = 0xF5E8D3C1; // Start with arbitrary seed
-    dummyCounter = (dummyCounter * 16777619) ^ 0x9E3779B9; // Mix in a constant
-
-    // Generate pseudorandom-looking bytes with some patterns similar to real encrypted data
-    for (size_t i = 0; i < 32; ++i) {
-      uint32_t shifted = dummyCounter >> (i % 3 * 3);
-      dummy[i] = static_cast<uint8_t>((shifted ^ i) & 0xFF);
-      // Ensure we don't get repeating patterns
-      if (i > 0 && dummy[i] == dummy[i-1]) {
-        dummy[i] = static_cast<uint8_t>((dummy[i] + 0x57) & 0xFF);
-      }
-    }
-
-    return dummy;
-  }
-
-
   // Burn receipt functions
   bool getBurnReceiptFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraBurnReceipt& burnReceipt)
   {

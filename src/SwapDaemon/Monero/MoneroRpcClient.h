@@ -53,8 +53,8 @@ public:
   bool transferToShared(const std::string& address, uint64_t amount, MoneroTransferResult& result);
 
   // Sweep the shared address (once both keys are known)
-  bool sweepSharedAddress(const std::string& spendKeyHex, const std::string& viewKeyHex,
-                          const std::string& destAddress, MoneroTransferResult& result);
+  virtual bool sweepSharedAddress(const std::string& spendKeyHex, const std::string& viewKeyHex,
+                                   const std::string& destAddress, MoneroTransferResult& result);
 
   // Check if an address has received funds
   bool checkAddressBalance(const std::string& address, uint64_t& balance, uint64_t& unlocked);
@@ -82,13 +82,15 @@ public:
   // adaptorSecretHex: the 32-byte adaptor secret t (hex).
   bool claimAdaptor(const std::string& aliceSpendKeyHex,
                     const std::string& bobSpendKeyHex,
+                    const std::string& adaptorSecretHex,
                     const std::string& viewKeyHex,
                     const std::string& destAddress,
                     MoneroTransferResult& result);
 
   // Refund XMR from the shared address cooperatively (both keys present).
   // Used when the swap times out before Alice claims on counterparty chain.
-  bool refundAdaptor(const std::string& spendKeyHex,
+  bool refundAdaptor(const std::string& aliceShareHex,
+                     const std::string& bobShareHex,
                      const std::string& viewKeyHex,
                      const std::string& destAddress,
                      MoneroTransferResult& result);

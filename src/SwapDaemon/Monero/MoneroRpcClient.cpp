@@ -29,6 +29,7 @@
 #include <stdexcept>
 
 #include "Common/JsonValue.h"
+#include "SwapDaemon/Monero/AdaptorSignature.h"
 
 namespace XfgSwap {
 
@@ -437,23 +438,101 @@ bool MoneroRpcClient::verifyLock(const std::string& sharedAddress,
 }
 
 bool MoneroRpcClient::claimAdaptor(const std::string& aliceSpendKeyHex,
-                                    const std::string& /*bobSpendKeyHex*/,
+                                    const std::string& bobSpendKeyHex,
+                                    const std::string& adaptorSecretHex,
                                     const std::string& viewKeyHex,
                                     const std::string& destAddress,
                                     MoneroTransferResult& result) {
-  // TODO: combine Alice + Bob spend keys with adaptor secret to form the
-  // combined spend key, then call sweepSharedAddress.
-  // For now delegate with Alice's key as a placeholder.
-  return sweepSharedAddress(aliceSpendKeyHex, viewKeyHex, destAddress, result);
+  // Helper: hex decode string to 32-byte array
+  auto hexDecode = [](const std::string& hex, std::array<uint8_t, 32>& out) -> bool {
+    if (hex.length() != 64) return false;
+    for (size_t i = 0; i < 32; ++i) {
+      uint8_t high, low;
+      if (hex[2*i] >= '0' && hex[2*i] <= '9') high = hex[2*i] - '0';
+      else if (hex[2*i] >= 'a' && hex[2*i] <= 'f') high = hex[2*i] - 'a' + 10;
+      else if (hex[2*i] >= 'A' && hex[2*i] <= 'F') high = hex[2*i] - 'A' + 10;
+      else return false;
+      if (hex[2*i+1] >= '0' && hex[2*i+1] <= '9') low = hex[2*i+1] - '0';
+      else if (hex[2*i+1] >= 'a' && hex[2*i+1] <= 'f') low = hex[2*i+1] - 'a' + 10;
+      else if (hex[2*i+1] >= 'A' && hex[2*i+1] <= 'F') low = hex[2*i+1] - 'A' + 10;
+      else return false;
+      out[i] = (high << 4) | low;
+    }
+    return true;
+  };
+
+  // Decode all three scalars from hex
+  std::array<uint8_t, 32> alice, bob, adaptor;
+  if (!hexDecode(aliceSpendKeyHex, alice)) return false;
+  if (!hexDecode(bobSpendKeyHex, bob)) return false;
+  if (!hexDecode(adaptorSecretHex, adaptor)) return false;
+
+  // Combine via scalar addition: alice + bob + adaptor (mod ℓ)
+  std::array<uint8_t, 32> combined;
+  if (!AdaptorSigScheme::combineSpendKeys(alice, bob, adaptor, combined)) {
+    // Zero-result case: don't sweep (would brick the wallet)
+    return false;
+  }
+
+  // Translate combined scalar back to hex for sweepSharedAddress
+  static const char* hex = "0123456789abcdef";
+  std::string combinedHex(64, '\0');
+  for (size_t i = 0; i < 32; ++i) {
+    combinedHex[2*i]     = hex[(combined[i] >> 4) & 0xF];
+    combinedHex[2*i + 1] = hex[combined[i] & 0xF];
+  }
+
+  // Sweep using the combined spend key
+  return sweepSharedAddress(combinedHex, viewKeyHex, destAddress, result);
 }
 
-bool MoneroRpcClient::refundAdaptor(const std::string& spendKeyHex,
+bool MoneroRpcClient::refundAdaptor(const std::string& aliceShareHex,
+                                     const std::string& bobShareHex,
                                      const std::string& viewKeyHex,
                                      const std::string& destAddress,
                                      MoneroTransferResult& result) {
-  // Cooperative refund: sweep back to the original sender using both keys.
-  // TODO: requires both parties to cooperate and provide their key shares.
-  return sweepSharedAddress(spendKeyHex, viewKeyHex, destAddress, result);
+  // Helper: hex decode string to 32-byte array
+  auto hexDecode = [](const std::string& hex, std::array<uint8_t, 32>& out) -> bool {
+    if (hex.length() != 64) return false;
+    for (size_t i = 0; i < 32; ++i) {
+      uint8_t high, low;
+      if (hex[2*i] >= '0' && hex[2*i] <= '9') high = hex[2*i] - '0';
+      else if (hex[2*i] >= 'a' && hex[2*i] <= 'f') high = hex[2*i] - 'a' + 10;
+      else if (hex[2*i] >= 'A' && hex[2*i] <= 'F') high = hex[2*i] - 'A' + 10;
+      else return false;
+      if (hex[2*i+1] >= '0' && hex[2*i+1] <= '9') low = hex[2*i+1] - '0';
+      else if (hex[2*i+1] >= 'a' && hex[2*i+1] <= 'f') low = hex[2*i+1] - 'a' + 10;
+      else if (hex[2*i+1] >= 'A' && hex[2*i+1] <= 'F') low = hex[2*i+1] - 'A' + 10;
+      else return false;
+      out[i] = (high << 4) | low;
+    }
+    return true;
+  };
+
+  // Decode both party shares from hex
+  std::array<uint8_t, 32> aliceShare, bobShare;
+  if (!hexDecode(aliceShareHex, aliceShare)) return false;
+  if (!hexDecode(bobShareHex, bobShare)) return false;
+
+  // For cooperative refund, combine both shares (no adaptor secret)
+  // combined = aliceShare + bobShare (mod ℓ)
+  std::array<uint8_t, 32> zero{}; // All zeros for adaptor (none needed on refund)
+  std::array<uint8_t, 32> combined;
+  if (!AdaptorSigScheme::combineSpendKeys(aliceShare, bobShare, zero, combined)) {
+    // Zero-result case: don't sweep (would brick the wallet)
+    return false;
+  }
+
+  // Translate combined scalar back to hex for sweepSharedAddress
+  static const char* hex = "0123456789abcdef";
+  std::string combinedHex(64, '\0');
+  for (size_t i = 0; i < 32; ++i) {
+    combinedHex[2*i]     = hex[(combined[i] >> 4) & 0xF];
+    combinedHex[2*i + 1] = hex[combined[i] & 0xF];
+  }
+
+  // Sweep using the combined spend key
+  return sweepSharedAddress(combinedHex, viewKeyHex, destAddress, result);
 }
 
 } // namespace XfgSwap

@@ -97,6 +97,16 @@ public:
       const Crypto::EllipticCurvePoint& P2,
       const Crypto::EllipticCurvePoint& G,
       const Crypto::EllipticCurvePoint& H);
+
+  // Combine three Ed25519 scalars via addition mod ℓ
+  // Used to construct the full spend key for sweeping a shared XMR address
+  // in adaptor swaps: combined = alice + bob + adaptor (mod ℓ)
+  // Returns false if the result is zero (would brick the sweep)
+  static bool combineSpendKeys(
+      const std::array<uint8_t, 32>& alice,
+      const std::array<uint8_t, 32>& bob,
+      const std::array<uint8_t, 32>& adaptor,
+      std::array<uint8_t, 32>& outCombined);
 };
 
 // XMR swap protocol helper that uses adaptor signatures

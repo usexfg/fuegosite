@@ -595,11 +595,50 @@ Crypto::EllipticCurvePoint MoneroSwapProtocol::computeSharedSpendPub(
 Crypto::EllipticCurveScalar MoneroSwapProtocol::computeFullSpendKey(
     const Crypto::EllipticCurveScalar& bobSecret,
     const Crypto::EllipticCurveScalar& extractedAlicePartial) {
-  // Full spend key = a + b (scalar addition mod l)
-  // Bob knows b, and extracts a from the adapted signature.
   Crypto::EllipticCurveScalar fullKey;
-  sc_add(fullKey.data, asBytes(bobSecret), asBytes(extractedAlicePartial));
+  sc_add(asBytes(fullKey), asBytes(bobSecret), asBytes(extractedAlicePartial));
+  sc_reduce32(asBytes(fullKey));
   return fullKey;
+}
+
+// ---------------------------------------------------------------------------
+// AdaptorSigScheme::combineSpendKeys
+// ---------------------------------------------------------------------------
+
+bool AdaptorSigScheme::combineSpendKeys(
+    const std::array<uint8_t, 32>& alice,
+    const std::array<uint8_t, 32>& bob,
+    const std::array<uint8_t, 32>& adaptor,
+    std::array<uint8_t, 32>& outCombined) {
+  // Combine via scalar addition: alice + bob + adaptor (mod ℓ)
+  unsigned char temp[32];
+  
+  // temp = alice + bob
+  sc_add(temp, alice.data(), bob.data());
+  
+  // temp = temp + adaptor
+  sc_add(temp, temp, adaptor.data());
+  
+  // Reduce mod ℓ (Ed25519 group order)
+  sc_reduce32(temp);
+  
+  // Check for zero-result (would brick the sweep)
+  bool isZero = true;
+  for (size_t i = 0; i < 32; ++i) {
+    if (temp[i] != 0) {
+      isZero = false;
+      break;
+    }
+  }
+  
+  if (isZero) {
+    // Don't modify outCombined on failure (preserves caller's sentinel)
+    return false;
+  }
+  
+  // Success: copy temp to outCombined
+  std::memmove(outCombined.data(), temp, 32);
+  return true;
 }
 
 } // namespace XfgSwap
