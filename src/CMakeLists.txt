@@ -228,6 +228,10 @@ add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapP2P.cpp
     SwapDaemon/FuegoRpcClient.cpp
     SwapDaemon/PriceOracle.cpp
+    SwapDaemon/PoolTypes.cpp
+    SwapDaemon/PoolAMM.cpp
+    SwapDaemon/PoolAttestation.cpp
+    SwapDaemon/PoolDatabase.cpp
     # v11: pool trading — sources moved to SwapDaemon/pool_v11/, not compiled in v1
     # SwapDaemon/pool_v11/PoolTypes.cpp
     # SwapDaemon/pool_v11/PoolAMM.cpp
@@ -235,6 +239,8 @@ add_library(SwapDaemonLib STATIC
     # SwapDaemon/pool_v11/PoolOrganizer.cpp
     # SwapDaemon/pool_v11/PoolP2P.cpp
     # SwapDaemon/pool_v11/PoolDatabase.cpp
+    # SwapDaemon/pool_v11/PoolDatabase.cpp
+    SwapDaemon/PoolOrganizer.cpp
     SwapDaemon/Monero/MoneroRpcClient.cpp
     SwapDaemon/Monero/AdaptorSignature.cpp
     SwapDaemon/Ethereum/EthRpcClient.cpp
