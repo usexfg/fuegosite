@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Fuego. If not, see <https://www.gnu.org/licenses/>.
 
-#include "Math.h"
+#include "MathUtils.h"
 
 namespace {
 char suppressMSVCWarningLNK4221;
