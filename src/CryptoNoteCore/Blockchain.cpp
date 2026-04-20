@@ -25,7 +25,7 @@
 #include <cstdio>
 #include <cmath>
 #include <boost/foreach.hpp>
-#include "../Common/Math.h"
+#include "../Common/MathUtils.h"
 #include "../Common/int-util.h"
 #include "../Common/ShuffleGenerator.h"
 #include "../Common/StdInputStream.h"

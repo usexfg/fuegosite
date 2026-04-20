@@ -25,7 +25,7 @@
 #include "Serialization/SerializationTools.h"
 #include "../version.h.in"
 #include <boost/format.hpp>
-#include "Common/Math.h"
+#include "Common/MathUtils.h"
 #include "Common/ConsoleTools.h"
 
 namespace

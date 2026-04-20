@@ -22,7 +22,7 @@
 #include "../CryptoNoteConfig.h"
 #include "../Common/CommandLine.h"
 #include "../Common/Util.h"
-#include "../Common/Math.h"
+#include "../Common/MathUtils.h"
 #include "../Common/StringTools.h"
 #include "../crypto/crypto.h"
 #include "../CryptoNoteProtocol/CryptoNoteProtocolDefinitions.h"

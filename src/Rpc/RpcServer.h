@@ -23,7 +23,7 @@
 
 #include "HttpServer.h"
 #include <Logging/LoggerRef.h>
-#include "Common/Math.h"
+#include "Common/MathUtils.h"
 #include "CoreRpcServerCommandsDefinitions.h"
 #include "../SwapDaemon/SwapDatabase.h"
 #include "../SwapDaemon/SwapDaemon.h"
