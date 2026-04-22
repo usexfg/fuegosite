@@ -409,6 +409,15 @@ bool SwapDaemon::processSwap(const std::string& swapId) {
     case SwapState::ADAPTOR_ESCROW_FUNDED:
       m_logger(Logging::INFO) << "  Escrow funded (tx: "
         << Common::podToHex(params.escrowTxHash) << ").";
+      // Phase 1: 1% sender surcharge added to escrow amount
+      if (params.xfgAmount > 0) {
+        uint64_t senderSurcharge = params.xfgAmount / 100;
+        if (senderSurcharge > 0) {
+          params.xfgAmount += senderSurcharge;
+          m_feePoolBalance += senderSurcharge;
+          m_currentEpochSwapFees += senderSurcharge;
+        }
+      }
       m_logger(Logging::INFO) << "  Next: exchange Musig2 nonces and create adaptor pre-sigs.";
       break;
 

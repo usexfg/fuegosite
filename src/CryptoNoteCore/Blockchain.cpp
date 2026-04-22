@@ -3383,8 +3383,8 @@ bool Blockchain::pushTransaction(BlockEntry& block, const Crypto::Hash& transact
     return false;
   }
 
-    for (size_t i = 0; i < transaction.tx.inputs.size(); ++i)
-    {
+  for (size_t i = 0; i < transaction.tx.inputs.size(); ++i)
+  {
       if (transaction.tx.inputs[i].type() == typeid(KeyInput))
       {
         auto result = m_spent_keys.insert(std::make_pair(::boost::get<KeyInput>(transaction.tx.inputs[i]).keyImage, block.height));
@@ -3421,6 +3421,15 @@ bool Blockchain::pushTransaction(BlockEntry& block, const Crypto::Hash& transact
       if (cin.claimedInterest > 0 && cin.claimedInterest <= m_feePoolBalance) {
         m_feePoolBalance -= cin.claimedInterest;
         m_totalCdInterestPaid += cin.claimedInterest;
+      }
+      // Phase 1: 1% of the claimed amount also goes to the fee pool (HTLC claim fees)
+      if (cin.amount > 0) {
+        uint64_t claimerFee = cin.amount / 100; // 1%
+        if (claimerFee > 0) {
+          m_feePoolBalance += claimerFee;
+          m_currentEpochSwapFees += claimerFee;
+          m_totalSwapFeesCollected += claimerFee; // track lifetime accrual
+        }
       }
     } else if (inv.type() == typeid(TransactionInputCommitmentTransfer)) {
       const auto& xfer = ::boost::get<TransactionInputCommitmentTransfer>(inv);
