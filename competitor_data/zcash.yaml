@@ -1,0 +1,80 @@
+name: Zcash
+symbol: ZEC
+website: https://z.cash
+tagline: "Privacy-protecting digital currency"
+founded: 2016
+headquarters: Decentralized (Electric Coin Company)
+
+# Positioning
+primary_use_case: "Selective privacy for digital currency"
+target_audience: "Users wanting optional privacy with regulatory compliance options"
+market_position: "Institutional-friendly privacy coin with ZK-SNARKs"
+
+# Tokenomics
+token_name: ZEC
+max_supply: 21 million ZEC
+block_time: 75 seconds
+privacy_tech: ZK-SNARKs (shielded transactions), optional transparency
+
+# Features
+features:
+  privacy: 8
+  regulatory_compliance: 9
+  transaction_speed: 7
+  scalability: 6
+  adoption: 6
+  development_activity: 7
+  exchange_listings: 8
+  smart_contracts: 3
+
+# Strengths
+strengths:
+  - Optional privacy (transparent or shielded transactions)
+  - Strong academic backing and peer-reviewed cryptography
+  - Better exchange listings than Monero due to transparency option
+  - Viewing keys for selective disclosure (audit/compliance)
+  - Regular network upgrades
+  - Strong brand recognition in privacy space
+  - Mobile wallet availability
+
+# Weaknesses
+weaknesses:
+  - Privacy is optional (not default like Monero/Fuego)
+  - Founder's reward controversy (though now gone)
+  - More complex cryptography than ring signatures
+  - Shielded transaction pool sometimes has liquidity issues
+  - Higher computational requirements for shielded txs
+  - Less cypherpunk credibility than Monero
+  - Limited DeFi integration despite smart contract capability
+
+# Best for
+best_for:
+  - Users wanting optional privacy (can choose when to be private)
+  - Those needing regulatory compliance options (viewing keys)
+  - Users preferring ZK-SNARKs over ring signatures
+  - Those wanting better exchange availability
+  - Users comfortable with slightly more complex UX for privacy
+
+# Not ideal for
+not_ideal_for:
+  - Users requiring default privacy (no option to be transparent)
+  - Those who distrust ZK-SNARKs setup (though parameters are trusted)
+  - Users wanting maximum anonymity set size
+  - Those needing built-in yield mechanisms
+  - Users wanting simple, Bitcoin-like experience
+
+# Common complaints
+common_complaints:
+  - "Shielded transactions are slow and expensive"
+  - "Most transactions are actually transparent (low privacy set)"
+  - "Complexity of choosing between transparent/shielded"
+  - "Viewing key management can be confusing"
+  - "Less community-driven than Monero"
+
+# Migration notes
+migration_from:
+  difficulty: medium
+  data_export: "Standard seed phrase (depends on wallet)"
+  what_transfers: "Balance and transaction history"
+  what_doesnt: "Memo fields (if used)"
+  time_estimate: "10-20 minutes"

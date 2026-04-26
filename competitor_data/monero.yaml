@@ -1,0 +1,82 @@
+name: Monero
+symbol: XMR
+website: https://www.getmonero.org
+tagline: "Private, secure, untraceable cryptocurrency"
+founded: 2014
+headquarters: Decentralized
+
+# Positioning
+primary_use_case: "Private digital cash"
+target_audience: "Users requiring maximum transaction privacy"
+market_position: "Gold standard for transaction privacy"
+
+# Tokenomics
+token_name: XMR
+max_supply: Infinite (tail emission of 0.6 XMR/block)
+block_time: 120 seconds
+privacy_tech: CryptoNote (RingCT, stealth addresses, Kovri)
+
+# Features
+features:
+  privacy: 10
+  fungibility: 10
+  transaction_speed: 6
+  scalability: 5
+  adoption: 7
+  development_activity: 8
+  mining_accessibility: 9
+  smart_contracts: 2
+
+# Strengths
+strengths:
+  - Best-in-class transaction privacy (untraceable, unlinkable)
+  - Strong fungibility due to privacy
+  - Active developer community
+  - ASIC-resistant mining (RandomX)
+  - No trusted setup required
+  - Proven track record since 2014
+  - Widely accepted on darknet markets (for better or worse)
+  - Regular protocol upgrades
+
+# Weaknesses
+weaknesses:
+  - No smart contract functionality
+  - Limited exchange listings due to regulatory concerns
+  - Larger blockchain size than Bitcoin
+  - No light wallet options (full node required for best privacy)
+  - Limited DeFi integration
+  - No built-in yield mechanisms
+  - Complex address format (long, integrated addresses)
+
+# Best for
+best_for:
+  - Users requiring maximum transaction privacy
+  - Those who value fungibility above all else
+  - Users uncomfortable with transparent blockchains
+  - Privacy activists and cypherpunks
+  - Those needing private store of value
+
+# Not ideal for
+not_ideal_for:
+  - Users wanting to earn yield on holdings
+  - Those needing smart contract functionality
+  - Users requiring fast, cheap transactions
+  - Those building DeFi applications
+  - Users wanting regulatory compliance (though privacy helps)
+  - Those needing mobile-friendly wallets
+
+# Common complaints
+common_complaints:
+  - "Hard to spend due to exchange delistings"
+  - "Blockchain grows quickly"
+  - "No light wallet for mobile"
+  - "Limited use cases beyond private transactions"
+  - "Mining requires significant CPU power"
+
+# Migration notes
+migration_from:
+  difficulty: easy
+  data_export: "Standard 25-word seed"
+  what_transfers: "Full balance and transaction history"
+  what_doesnt: "Nothing (pure currency)"
+  time_estimate: "5 minutes"

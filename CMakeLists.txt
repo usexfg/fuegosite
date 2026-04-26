@@ -25,6 +25,14 @@ set(CMAKE_SUPPRESS_REGENERATION ON)
 
 project(fuegoX)
 
+# Optionally disable FuegoTor integration to simplify builds (default OFF for safety)
+option(ENABLE_FUEGOTOR "Enable FuegoTor integration" OFF)
+
+# If enabled, add the FuegoTor subdirectory, otherwise skip
+if(ENABLE_FUEGOTOR)
+  add_subdirectory(src/FuegoTor)
+endif()
+
 # --------------------------
 # Version generation
 # --------------------------

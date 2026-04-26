@@ -183,8 +183,101 @@ The LP pool needs to prove **something completely different**:
 
 ---
 
+## ⚠️ Critical: Hash Function Compatibility
+
+### The Problem
+
+There are **two different hash functions** in Fuego that affect HEAT proofs:
+
+| Component | Hash Function | Used By | Compatible with Solidity? |
+|-----------|---------------|---------|--------------------------|
+| `CommitmentIndex` | `cn_fast_hash` (CryptoNote) | Original HEAT scanning | ❌ NO |
+| `PoolMerkleTree` | `keccak256` | LP proofs, HEATClaimer | ✅ YES |
+
+### Why This Matters
+
+The `HEATClaimer.sol` contract uses Solidity's `keccak256()` for merkle proof verification:
+
+```solidity
+function _verifyMerkleProof(bytes32 leaf, bytes32[] calldata proof, uint256 index, bytes32 root) internal pure returns (bool) {
+    bytes32 current = leaf;
+    for (uint256 i = 0; i < proof.length; i++) {
+        if (index % 2 == 0) {
+            current = keccak256(abi.encodePacked(current, proof[i]));  // keccak256!
+        } else {
+            current = keccak256(abi.encodePacked(proof[i], current));
+        }
+        index /= 2;
+    }
+    return current == root;
+}
+```
+
+If you generate merkle proofs using `CommitmentIndex` (which uses `cn_fast_hash`), the Solidity contract will **reject them** because the hash function doesn't match.
+
+### ✅ Solution: Use PoolMerkleTree
+
+For any HEAT proofs that need to be verified by the `HEATClaimer.sol` contract, use `PoolMerkleTree`:
+
+```cpp
+// CORRECT - Use PoolMerkleTree with keccak256
+#include "SwapDaemon/PoolAttestation.h"
+
+XfgSwap::PoolMerkleTree tree;
+tree.addLeaf(commitmentHash);  // Hash must be keccak256 of preimage
+Crypto::Hash root = tree.computeRoot();
+std::vector<Crypto::Hash> proof = tree.getProof(leafIndex);
+
+// Verify (matches HEATClaimer.sol)
+bool valid = XfgSwap::PoolMerkleTree::verifyProof(leaf, proof, leafIndex, root);
+```
+
+### Migration from CommitmentIndex
+
+If you have existing code using `CommitmentIndex`:
+
+```cpp
+// ❌ OLD - Incompatible with HEATClaimer.sol
+CommitmentIndex index;
+index.pushBlock(block);
+auto root = index.getRoot();  // Uses cn_fast_hash!
+```
+
+```cpp
+// ✅ NEW - Compatible with HEATClaimer.sol
+PoolMerkleTree tree;
+// Add leaves with keccak256 hashing
+for (const auto& commitment : commitments) {
+    Crypto::Hash leaf = keccak256(commitment.preimage, 56);  // Must match Solidity
+    tree.addLeaf(leaf);
+}
+auto root = tree.computeRoot();  // Uses keccak256 ✓
+```
+
+### Integration Test
+
+See `tests/IntegrationTests/perform7_merkle_test.cpp` for a complete test that verifies:
+- Merkle root computation
+- Proof generation and verification
+- **Solidity compatibility** (simulated in C++)
+
+---
+
 ## Summary
 
+```
+HEAT proof = "These commitments are in real blockchain blocks"
+LP pool proof = "This swap/deposit/withdrawal math is correct"
+
+They are as different as:
+  - A receipt proving you bought something (HEAT proof)
+  - A calculator proving the math on the receipt is right (LP proof)
+
+Both are needed. Both use keccak256 hash functions for Solidity compatibility.
+But they cannot be the same proof.
+
+⚠️ IMPORTANT: Always use PoolMerkleTree (keccak256) for HEAT proofs,
+   NOT CommitmentIndex (cn_fast_hash)!
 ```
 HEAT proof  = "These commitments are in real blockchain blocks"
 LP pool proof = "This swap/deposit/withdrawal math is correct"
