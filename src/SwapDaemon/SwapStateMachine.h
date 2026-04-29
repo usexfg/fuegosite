@@ -41,6 +41,10 @@ public:
   std::string serialize() const;
   static SwapStateMachine deserialize(const std::string& json);
 
+  // Encryption key for adaptorSecret at rest (set before serialize for encryption)
+  void setEncryptionKey(const std::string& key);
+  bool hasEncryptionKey() const;
+
   // Check if swap is in a terminal state
   bool isTerminal() const;
 
@@ -52,6 +56,7 @@ private:
   SwapState m_state;
   time_t m_createdAt;
   time_t m_updatedAt;
+  std::string m_encryptionKey;
 };
 
 } // namespace XfgSwap

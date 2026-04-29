@@ -120,16 +120,18 @@ namespace CryptoNote
 
     // Deposit commands
     bool deposit(const std::vector<std::string> &args);
+    bool rollover(const std::vector<std::string> &args);  // Rollover matured CD with compound interest
+    // Hidden cold commands - kept for internal use but not exposed in help
     bool burn(const std::vector<std::string> &args);
     bool cold(const std::vector<std::string> &args);
-    bool elderking_ceremony(const std::vector<std::string> &args);
+    // bool elderking_ceremony(const std::vector<std::string> &args);
     bool withdraw(const std::vector<std::string> &args);
-    bool unstake(const std::vector<std::string> &args);
-    bool list_cold(const std::vector<std::string> &args);
-    bool cold_info(const std::vector<std::string> &args);
+    // bool unstake(const std::vector<std::string> &args);  // Removed - not implemented
+    bool list_cds(const std::vector<std::string> &args);
+    bool cd_info(const std::vector<std::string> &args);
     bool list_burns(const std::vector<std::string> &args);
     bool burn_info(const std::vector<std::string> &args);
-    bool migrate_cold(const std::vector<std::string> &args);
+    bool migrate_legacy_deposit(const std::vector<std::string> &args);
     bool propose_slash(const std::vector<std::string> &args);
     bool get_report(const std::vector<std::string> &args);
 
@@ -151,7 +153,7 @@ namespace CryptoNote
     // USER-FACING: Proof generation from deposits
     // Users generate STARKs from deposit transactions with xfg-stark-cli for L2 claims
     bool gen_proof(const std::vector<std::string> &args);
-    bool elder_council(const std::vector<std::string> &args); // fier_panel
+    // bool elder_council(const std::vector<std::string> &args); // fier_panel
 
     // Sub-address commands
     bool gen_new_sub(const std::vector<std::string> &args);

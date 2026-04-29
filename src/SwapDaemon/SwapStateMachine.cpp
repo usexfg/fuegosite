@@ -13,6 +13,7 @@
 // along with Fuego. If not, see <https://www.gnu.org/licenses/>.
 
 #include "SwapStateMachine.h"
+#include "SwapSecretEncryption.h"
 #include "Common/JsonValue.h"
 #include "Common/StringTools.h"
 #include "../Common/pod-class.h"
@@ -236,10 +237,23 @@ std::string SwapStateMachine::serialize() const {
 
   // Persist adaptorSecret so a daemon restart mid-swap can recover the
   // 32-byte scalar needed to adapt the pre-signature on the XFG chain.
-  // TODO: encrypt at rest — currently plaintext. Key at minimum should be
-  //       ChaCha20-Poly1305 keyed from the wallet spend key (available in
-  //       wallet context but not in scope of SwapStateMachine today).
-  root.insert("adaptorSecret", Common::podToHex(m_params.adaptorSecret));
+  // SECURE: Encrypt at rest with ChaCha20 if encryption key is set.
+  if (hasEncryptionKey()) {
+    SwapSecretEncryption::EncryptedSecret encrypted;
+    if (SwapSecretEncryption::encrypt(m_params.adaptorSecret, m_encryptionKey, encrypted)) {
+      // Store as encrypted: nonce(12) || ciphertext(32) = 44 bytes, stored as hex
+      std::string encData;
+      encData.reserve(CHACHA20_NONCE_SIZE + encrypted.ciphertext.size());
+      encData.insert(encData.end(), encrypted.nonce.begin(), encrypted.nonce.end());
+      encData.insert(encData.end(), encrypted.ciphertext.begin(), encrypted.ciphertext.end());
+      root.insert("adaptorSecret", Common::toHex(encData.data(), encData.size()));
+    } else {
+      // Encryption failed — fall back to plaintext (should not happen)
+      root.insert("adaptorSecret", Common::podToHex(m_params.adaptorSecret));
+    }
+  } else {
+    root.insert("adaptorSecret", Common::podToHex(m_params.adaptorSecret));
+  }
 
   // Legacy fields (kept for backward compat in DB)
   root.insert("aliceXfgPubKey", Common::podToHex(m_params.aliceXfgPubKey));
@@ -255,6 +269,10 @@ std::string SwapStateMachine::serialize() const {
 
   root.insert("createdAt", static_cast<int64_t>(m_createdAt));
   root.insert("updatedAt", static_cast<int64_t>(m_updatedAt));
+
+  // Store encryption key for later decryption (if set)
+  if (hasEncryptionKey())
+    root.insert("encKey", m_encryptionKey);
 
   return root.toString();
 }
@@ -291,8 +309,27 @@ SwapStateMachine SwapStateMachine::deserialize(const std::string& json) {
   // Restore adaptorSecret persisted since serVersion 2.
   // Absent in v1 records — zero-initialised by SwapStateMachine() default ctor
   // and will be populated from the counterparty chain claim when the swap resumes.
-  if (root.contains("adaptorSecret"))
-    Common::podFromHex(root("adaptorSecret").getString(), params.adaptorSecret);
+  if (root.contains("adaptorSecret")) {
+    std::string stored = root("adaptorSecret").getString();
+
+    // Check if encrypted format (88 hex chars = 44 bytes nonce+ciphertext)
+    // or plaintext format (64 hex chars = 32 bytes)
+    if (stored.size() == 88 && root.contains("encKey")) {
+      // Encrypted: decode hex to bytes
+      std::vector<uint8_t> data(stored.size() / 2);
+      Common::podFromHex(stored, data);
+
+      std::array<uint8_t, CHACHA20_NONCE_SIZE> nonce;
+      std::vector<uint8_t> ciphertext(data.begin() + 12, data.end());
+
+      SwapSecretEncryption::EncryptedSecret encrypted{nonce, ciphertext};
+      std::string encKey = root("encKey").getString();
+      SwapSecretEncryption::decrypt(encrypted, encKey, params.adaptorSecret);
+    } else {
+      // Plaintext (64 hex chars = 32 bytes)
+      Common::podFromHex(stored, params.adaptorSecret);
+    }
+  }
 
   // Legacy fields
   if (root.contains("aliceXfgPubKey"))
@@ -316,7 +353,19 @@ SwapStateMachine SwapStateMachine::deserialize(const std::string& json) {
   sm.m_createdAt = static_cast<time_t>(root("createdAt").getInteger());
   sm.m_updatedAt = static_cast<time_t>(root("updatedAt").getInteger());
 
+  // Restore encryption key if present (for decrypting adaptorSecret on load)
+  if (root.contains("encKey"))
+    sm.m_encryptionKey = root("encKey").getString();
+
   return sm;
+}
+
+void SwapStateMachine::setEncryptionKey(const std::string& key) {
+  m_encryptionKey = key;
+}
+
+bool SwapStateMachine::hasEncryptionKey() const {
+  return !m_encryptionKey.empty();
 }
 
 } // namespace XfgSwap

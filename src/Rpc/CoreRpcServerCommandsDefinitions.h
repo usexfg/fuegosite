@@ -1505,7 +1505,9 @@ struct COMMAND_RPC_GET_FEE_POOL_INFO {
   typedef EMPTY_STRUCT request;
 
   struct response {
-    uint64_t fee_pool_balance;
+    uint64_t fee_pool_balance;          // 69% CD yield pool
+    uint64_t treasury_balance;          // 10% treasury reserve
+    uint64_t rollover_vault_balance;    // 21% rollover vault
     uint64_t current_epoch_swap_fees;
     uint64_t total_cd_locked;
     uint64_t current_epoch_number;
@@ -1513,6 +1515,8 @@ struct COMMAND_RPC_GET_FEE_POOL_INFO {
 
     void serialize(ISerializer& s) {
       KV_MEMBER(fee_pool_balance)
+      KV_MEMBER(treasury_balance)
+      KV_MEMBER(rollover_vault_balance)
       KV_MEMBER(current_epoch_swap_fees)
       KV_MEMBER(total_cd_locked)
       KV_MEMBER(current_epoch_number)

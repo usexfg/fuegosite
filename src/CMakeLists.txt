@@ -41,10 +41,15 @@ list(APPEND SimpleWallet
     SwapDaemon/SwapTypes.cpp
 )
 
-file(GLOB_RECURSE Optimizer Optimizer/*)
+# Optimizer sources - explicit path
+set(OPTIMIZER_SOURCES
+    OptimizerSrc/Optimizer.cpp
+)
 
-# Tor integration
-add_subdirectory(FuegoTor)
+# Tor integration - only if enabled via top-level option
+if(ENABLE_FUEGOTOR)
+  add_subdirectory(FuegoTor)
+endif()
 
 # I2P integration
 add_subdirectory(FuegoI2P)
@@ -220,6 +225,7 @@ add_library(NodeRpcProxy STATIC ${NodeRpcProxy})
 add_library(SwapDaemonLib STATIC
     SwapDaemon/SwapTypes.cpp
     SwapDaemon/SwapStateMachine.cpp
+    SwapDaemon/SwapSecretEncryption.cpp
     SwapDaemon/SwapDatabase.cpp
     SwapDaemon/AdaptorSwap.cpp
     SwapDaemon/SwapDaemon.cpp
@@ -338,7 +344,7 @@ add_executable(TestnetDaemon Daemon/DaemonCommandsHandler.cpp Daemon/DaemonComma
 # SimpleWallet executable uses library + adds back main.cpp
 add_executable(SimpleWallet ${SimpleWallet} SimpleWallet/main.cpp)
 add_executable(PaymentGateService ${PaymentGateService})
-add_executable(Optimizer ${Optimizer})
+add_executable(Optimizer ${OPTIMIZER_SOURCES})
 
 # Swap Daemon executable (xfg-swap) — active v1 atomic swap sources only
 # v11 pool trading sources are in SwapDaemon/pool_v11/ and excluded here.
@@ -350,6 +356,7 @@ add_executable(SwapDaemon
     SwapDaemon/PriceOracle.cpp
     SwapDaemon/SwapDaemon.cpp
     SwapDaemon/SwapP2P.cpp
+    SwapDaemon/SwapSecretEncryption.cpp
     SwapDaemon/Monero/MoneroRpcClient.cpp
     SwapDaemon/Monero/AdaptorSignature.cpp
     SwapDaemon/Ethereum/EthRpcClient.cpp
@@ -379,19 +386,18 @@ add_executable(testnet-wallet-cli
     SimpleWallet/TransferCmd.cpp
 )
 
-# Set proper linker flags to find FuegoTor library
-# FuegoTor library path is handled by target_link_directories
-# No global link_directories needed to avoid path duplication
-
-# Add link directory to ensure FuegoTor and FuegoI2P can be found for all relevant targets
-set(FUEGOTOR_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoTor)
-set(FUEGOI2P_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoI2P)
-target_link_directories(PaymentGateService PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
-target_link_directories(SimpleWallet PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
-target_link_directories(Daemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
-target_link_directories(TestnetDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
-target_link_directories(testnet-wallet-cli PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
-target_link_directories(SwapDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+# Set proper linker flags to find FuegoTor library (only if enabled)
+if(ENABLE_FUEGOTOR)
+  # Add link directory to ensure FuegoTor and FuegoI2P can be found for all relevant targets
+  set(FUEGOTOR_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoTor)
+  set(FUEGOI2P_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/src/FuegoI2P)
+  target_link_directories(PaymentGateService PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+  target_link_directories(SimpleWallet PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+  target_link_directories(Daemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+  target_link_directories(TestnetDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+  target_link_directories(testnet-wallet-cli PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+  target_link_directories(SwapDaemon PRIVATE ${FUEGOTOR_LIB_PATH} ${FUEGOI2P_LIB_PATH})
+endif()
 
 target_link_libraries(testnet-wallet-cli PRIVATE
     Wallet
@@ -433,7 +439,6 @@ target_link_libraries(Daemon PRIVATE
     upnpc-static
     BlockchainExplorer
     FuegoI2P
-    FuegoTor
     ${Boost_LIBRARIES}
     Serialization
     ${JSONCPP_LIBRARIES}

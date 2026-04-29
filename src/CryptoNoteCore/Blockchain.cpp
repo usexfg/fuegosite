@@ -216,9 +216,11 @@ public:
       s(m_bs.m_currentEpochSwapFees, "current_epoch_swap_fees");
       s(m_bs.m_totalCdLocked, "total_cd_locked");
       s(m_bs.m_treasuryBalance, "treasury_balance");
+      s(m_bs.m_rolloverVaultBalance, "rollover_vault_balance");
       s(m_bs.m_totalSwapFeesCollected, "total_swap_fees_collected");
       s(m_bs.m_totalCdInterestPaid, "total_cd_interest_paid");
       s(m_bs.m_totalTreasuryAccrued, "total_treasury_accrued");
+      s(m_bs.m_totalRolloverAccrued, "total_rollover_accrued");
 
     auto dur = std::chrono::steady_clock::now() - start;
 
@@ -776,16 +778,16 @@ if (!m_upgradeDetectorV2.init() || !m_upgradeDetectorV3.init() || !m_upgradeDete
             entry.type          = CommitmentEntry::Type::HEAT;
             entry.targetChainId = h.metadata.size() > 0 ? h.metadata[0] : 1;
             m_commitmentIndex.addCommitment(entry);
-          } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
-            const auto& c = boost::get<TransactionExtraColdCommitment>(field);
+          } else if (field.type() == typeid(TransactionExtraSimpleCD)) {
+            const auto& c = boost::get<TransactionExtraSimpleCD>(field);
             CommitmentEntry entry;
             entry.commitment    = c.commitment;
             entry.txHash        = getObjectHash(tx);
             entry.blockHeight   = b;
             entry.amount        = c.amount;
             entry.term          = c.term;
-            entry.type          = CommitmentEntry::Type::COLD;
-            entry.targetChainId = c.claimChainCode;
+            entry.type          = CommitmentEntry::Type::COLD; // Keep type COLD for internal tracking
+            entry.targetChainId = 1; // Default to ETH
             m_commitmentIndex.addCommitment(entry);
           }
         }
@@ -1777,7 +1779,7 @@ bool Blockchain::getRandomOutsByAmount(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_
 }
 
 bool Blockchain::getRandomCommitmentOutputsForAmount(uint64_t amount, uint64_t count,
-    std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result) {
+    std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result, uint32_t max_height) {
   std::lock_guard<decltype(m_blockchain_lock)> lk(m_blockchain_lock);
 
   auto it = m_commitmentOutputs.find(amount);
@@ -1785,19 +1787,38 @@ bool Blockchain::getRandomCommitmentOutputsForAmount(uint64_t amount, uint64_t c
     return true; // no commitment outputs at this amount yet — caller handles empty result
   }
 
-  const auto& refs = it->second;
-  const size_t total = refs.size();
+  const auto& allRefs = it->second;
+  std::vector<size_t> validIndices;
+  validIndices.reserve(allRefs.size());
+
+  // Filter by height: only outputs created at or before max_height
+  if (max_height > 0) {
+    for (size_t i = 0; i < allRefs.size(); ++i) {
+      if (allRefs[i].transactionIndex.block <= max_height) {
+        validIndices.push_back(i);
+      }
+    }
+  } else {
+    // No filter: all indices are valid
+    validIndices.resize(allRefs.size());
+    std::iota(validIndices.begin(), validIndices.end(), 0);
+  }
+
+  if (validIndices.empty()) return true;
+
+  const size_t total = validIndices.size();
 
   if (total <= count) {
-    // Return all available outputs.
+    // Return all valid outputs.
     for (size_t i = 0; i < total; ++i) {
       COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry entry;
-      entry.global_amount_index = static_cast<uint32_t>(i);
-      entry.commit_key = refs[i].commitKey;
+      size_t absIdx = validIndices[i];
+      entry.global_amount_index = static_cast<uint32_t>(absIdx);
+      entry.commit_key = allRefs[absIdx].commitKey;
       result.push_back(entry);
     }
   } else {
-    // Triangular distribution: bias toward recent outputs (higher indices), same as KeyOutput ring.
+    // Triangular distribution: bias toward recent (but still valid) outputs.
     std::set<size_t> used;
     size_t tries = 0;
     const size_t maxTries = count * 20;
@@ -1805,13 +1826,16 @@ bool Blockchain::getRandomCommitmentOutputsForAmount(uint64_t amount, uint64_t c
       ++tries;
       uint64_t r = Crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
       double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-      size_t idx = static_cast<size_t>(frac * total);
-      if (idx >= total) idx = total - 1;
-      if (used.count(idx)) continue;
-      used.insert(idx);
+      size_t idxInValid = static_cast<size_t>(frac * total);
+      if (idxInValid >= total) idxInValid = total - 1;
+      
+      size_t absIdx = validIndices[idxInValid];
+      if (used.count(absIdx)) continue;
+      used.insert(absIdx);
+      
       COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry entry;
-      entry.global_amount_index = static_cast<uint32_t>(idx);
-      entry.commit_key = refs[idx].commitKey;
+      entry.global_amount_index = static_cast<uint32_t>(absIdx);
+      entry.commit_key = allRefs[absIdx].commitKey;
       result.push_back(entry);
     }
   }
@@ -2944,11 +2968,8 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
         if (field.type() == typeid(TransactionExtraHeatCommitment)) {
           const auto& heat = boost::get<TransactionExtraHeatCommitment>(field);
           totalBankingFees += heat.amount / 1000;
-        } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
-          const auto& cold = boost::get<TransactionExtraColdCommitment>(field);
-          totalBankingFees += cold.amount / 1000;
-        } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
-          const auto& cd = boost::get<TransactionExtraColdCommitment>(field);
+        } else if (field.type() == typeid(TransactionExtraSimpleCD)) {
+          const auto& cd = boost::get<TransactionExtraSimpleCD>(field);
           totalBankingFees += cd.amount / 1000;
         }
       }
@@ -3001,11 +3022,11 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
             logger(DEBUGGING) << "HEAT commitment indexed: " << Common::podToHex(heatCommit.commitment)
                              << " amount=" << heatCommit.amount;
           }
-          // Check for COLD commitment (0xCD) - term deposit
-          else if (field.type() == typeid(TransactionExtraColdCommitment)) {
-            const auto& coldCommit = boost::get<TransactionExtraColdCommitment>(field);
+          // Check for CD commitment (0xCD) - term deposit
+          else if (field.type() == typeid(TransactionExtraSimpleCD)) {
+            const auto& coldCommit = boost::get<TransactionExtraSimpleCD>(field);
 
-            // Index the COLD commitment for RPC queries
+            // Index the CD commitment for RPC queries
             Crypto::Hash txHash = getObjectHash(tx.tx);
             CommitmentEntry entry;
             entry.commitment = coldCommit.commitment;
@@ -3014,11 +3035,11 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
             entry.amount = coldCommit.amount;
             entry.term = coldCommit.term;
             entry.type = CommitmentEntry::Type::COLD;
-            entry.targetChainId = coldCommit.claimChainCode;
+            entry.targetChainId = 1; // Default to ETH
             m_commitmentIndex.addCommitment(entry);
 
-            logger(DEBUGGING) << "COLD commitment indexed: " << Common::podToHex(coldCommit.commitment)
-                             << " amount=" << coldCommit.amount << " term=" << coldCommit.term;
+            logger(DEBUGGING) << "CD commitment indexed: " << Common::podToHex(coldCommit.commitment)
+                              << " amount=" << coldCommit.amount << " term=" << coldCommit.term;
           }
           // 0xCE: COLD migration — register v3 commitment for a pre-v3 legacy deposit
           else if (field.type() == typeid(TransactionExtraColdMigration)) {
@@ -3234,35 +3255,45 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     uint64_t epochNumber = newHeight / epochDuration;
     uint64_t epochStart = (epochNumber - 1) * epochDuration;
     uint64_t epochEnd = epochStart + epochDuration - 1;
-    // Split swap fees: 80% CD yield / 20% Treasury
+    // Split swap fees: 69% CD Yield / 21% Treasury Reserve / 10% Rollover Vault
     uint64_t epochSwapFees = m_currentEpochSwapFees;
     uint64_t epochCdLocked = m_totalCdLocked;
-     uint64_t treasuryShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_TREASURY_SHARE_PCT) / 100;
-    uint64_t cdSwapShare = epochSwapFees - treasuryShare;
+    uint64_t cdShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_CD_SHARE_PCT) / 100;
+    uint64_t treasuryShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_TREASURY_SHARE_PCT) / 100;
+    uint64_t rolloverShare = (epochSwapFees * CryptoNote::parameters::SWAP_FEE_ROLLOVER_SHARE_PCT) / 100;
 
-    // Compute fee rate for this epoch on CD's 80% share only.
+    // Compute fee rate for this epoch on CD share only.
     // Use __uint128_t for the intermediate product to prevent uint64_t overflow
-    // when cdSwapShare * FEE_POOL_RATE_PRECISION exceeds 2^64.
     uint64_t epochFeeRate = 0;
-    if (epochCdLocked > 0 && cdSwapShare > 0) {
+    if (epochCdLocked > 0 && cdShare > 0) {
       epochFeeRate = static_cast<uint64_t>(
-          (__uint128_t)cdSwapShare * CryptoNote::parameters::FEE_POOL_RATE_PRECISION / epochCdLocked);
+          (__uint128_t)cdShare * CryptoNote::parameters::FEE_POOL_RATE_PRECISION / epochCdLocked);
     }
-    m_commitmentIndex.recordEpochFeeRate(epochNumber, epochFeeRate, cdSwapShare, epochCdLocked);
+    m_commitmentIndex.recordEpochFeeRate(epochNumber, epochFeeRate, cdShare, epochCdLocked);
 
     // Cumulative accounting: track lifetime swap fees entering the pool
     m_totalSwapFeesCollected += epochSwapFees;
+    
+    // Add epoch swap fees to fee pool, then distribute treasury and rollover
+    m_feePoolBalance += epochSwapFees;
 
-    // Deduct treasury share from fee pool; remainder stays as CD yield
+    // Distribute shares: treasury and rollover are moved out, CD share stays
     if (treasuryShare > 0 && m_feePoolBalance >= treasuryShare) {
       m_feePoolBalance -= treasuryShare;
       m_treasuryBalance += treasuryShare;
       m_totalTreasuryAccrued += treasuryShare;
     }
+    if (rolloverShare > 0 && m_feePoolBalance >= rolloverShare) {
+      m_feePoolBalance -= rolloverShare;
+      m_rolloverVaultBalance += rolloverShare;
+      m_totalRolloverAccrued += rolloverShare;
+    }
+    // CD share (80%) remains in m_feePoolBalance for interest payouts
 
     // Record the full epoch accumulator as this block's contribution before resetting.
     // popBlock will subtract this value and pop the matching m_epochFeeRates entry.
     m_blockSwapFeeContributions.push_back(epochSwapFees);
+    m_blockEpochDistributions.push_back({treasuryShare, rolloverShare});
 
     // Reset epoch accumulator for next epoch
     m_currentEpochSwapFees = 0;
@@ -3280,15 +3311,19 @@ bool Blockchain::pushBlock(BlockEntry &block) {
     logger(INFO) << "=== Epoch " << epochNumber << " Report ==="
                  << " blocks=" << epochStart << "-" << epochEnd
                  << " swapFees=" << epochSwapFees
-                 << " cdShare=" << cdSwapShare
-                 << " treasuryShare=" << treasuryShare
+                 << " cdShare(69%)=" << cdShare
+                 << " treasuryShare(21%)=" << treasuryShare
+                 << " rolloverShare(10%)=" << rolloverShare
                  << " treasuryBal=" << m_treasuryBalance
+                 << " rolloverVaultBal=" << m_rolloverVaultBalance
+                 << " feePoolBal=" << m_feePoolBalance
                  << " cdLocked=" << epochCdLocked
                  << " feeRate=" << epochFeeRate;
   } else {
     // Non-epoch-boundary block: record any swap fees accumulated during this block push.
     uint64_t blockContribution = m_currentEpochSwapFees - epochFeesBefore;
     m_blockSwapFeeContributions.push_back(blockContribution);
+    m_blockEpochDistributions.push_back({0, 0});  // No distribution on non-epoch blocks
   }
 
   return true;
@@ -3333,13 +3368,28 @@ void Blockchain::popBlock(const Crypto::Hash& blockHash) {
         : CryptoNote::parameters::EPOCH_DURATION_BLOCKS;
 
     if (poppedHeight > 0 && poppedHeight % epochDuration == 0) {
-      // This block was an epoch boundary: the contribution was the full epoch accumulator
-      // that got consumed (and reset to 0).  Restore it so the epoch accumulator reflects
-      // what it held just before the boundary was crossed, and remove the epoch fee rate
-      // record that was appended to CommitmentIndex.
+      // This block was an epoch boundary: reverse the epoch distributions
       m_currentEpochSwapFees += contribution;
       m_totalSwapFeesCollected -= contribution;
       m_commitmentIndex.popEpochFeeRate();
+      
+      // Reverse treasury and rollover vault distributions
+      if (!m_blockEpochDistributions.empty()) {
+        auto dist = m_blockEpochDistributions.back();
+        m_blockEpochDistributions.pop_back();
+        // Reverse treasury
+        if (dist.first > 0 && m_treasuryBalance >= dist.first) {
+          m_treasuryBalance -= dist.first;
+          m_totalTreasuryAccrued -= dist.first;
+          m_feePoolBalance += dist.first;  // Return to fee pool
+        }
+        // Reverse rollover vault
+        if (dist.second > 0 && m_rolloverVaultBalance >= dist.second) {
+          m_rolloverVaultBalance -= dist.second;
+          m_totalRolloverAccrued -= dist.second;
+          m_feePoolBalance += dist.second;  // Return to fee pool
+        }
+      }
     } else {
       // Non-boundary block: simply subtract the fee delta that was added.
       m_currentEpochSwapFees -= contribution;
@@ -3422,13 +3472,14 @@ bool Blockchain::pushTransaction(BlockEntry& block, const Crypto::Hash& transact
         m_feePoolBalance -= cin.claimedInterest;
         m_totalCdInterestPaid += cin.claimedInterest;
       }
-      // Phase 1: 1% of the claimed amount also goes to the fee pool (HTLC claim fees)
+      // Phase 2: 1% claim fee goes to fee pool (total swap fee = 2%: 1% initiation + 1% claim)
       if (cin.amount > 0) {
-        uint64_t claimerFee = cin.amount / 100; // 1%
+        uint64_t claimerFee = (cin.amount * CryptoNote::parameters::SWAP_FEE_RATE_BPS) 
+                            / CryptoNote::parameters::SWAP_FEE_RATE_DIVISOR;
         if (claimerFee > 0) {
           m_feePoolBalance += claimerFee;
           m_currentEpochSwapFees += claimerFee;
-          m_totalSwapFeesCollected += claimerFee; // track lifetime accrual
+          m_totalSwapFeesCollected += claimerFee;
         }
       }
     } else if (inv.type() == typeid(TransactionInputCommitmentTransfer)) {

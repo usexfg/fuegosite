@@ -249,20 +249,20 @@ fn run_prove(args: ProveArgs) -> Result<()> {
     };
 
     // 5. Run SP1 proof.
-    let prover = ProverClient::from_env();
+    let prover = ProverClient::network();
 
     let mut stdin = SP1Stdin::new();
     stdin.write(&witness);
 
     let (_, _report) = prover
-        .execute(&circuit_elf, &stdin)
+        .execute(&circuit_elf, stdin.clone())
         .run()
         .context("SP1 circuit execution failed")?;
 
     // Generate the actual proof.
     let (pk, _vk) = prover.setup(&circuit_elf);
     let proof = prover
-        .prove(&pk, &stdin)
+        .prove(&pk, stdin)
         .run()
         .context("SP1 proof generation failed")?;
 

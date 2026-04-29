@@ -468,11 +468,22 @@ namespace CryptoNote
       const std::vector<DepositId>& depositIds)
   {
     uint64_t outsCount = m_currency.maxMixin() + 1; // probe with max + 1 for real output
+    
+    // To maximize interest payout, select decoys created at or before the real CD.
+    // This ensures the "youngest" ring member is as old as possible.
+    uint32_t maxHeight = 0;
+    if (!depositIds.empty()) {
+      CryptoNote::Deposit deposit;
+      if (m_transactionsCache.getDeposit(depositIds[0], deposit)) {
+        maxHeight = static_cast<uint32_t>(deposit.height);
+      }
+    }
+
     return std::unique_ptr<WalletRequest>(new WalletGetRandomCommitmentOutsRequest(
-      amount, outsCount, context,
-      std::bind(&WalletTransactionSender::sendCommitmentWithdrawRandomOutsByAmount, this,
-        context, depositIds,
-        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)));
+      amount, outsCount, maxHeight, context,
+        std::bind(&WalletTransactionSender::sendCommitmentWithdrawRandomOutsByAmount, this,
+          context, depositIds,
+          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)));
   }
 
   void WalletTransactionSender::sendCommitmentWithdrawRandomOutsByAmount(
@@ -762,10 +773,10 @@ namespace CryptoNote
         if (tag == TX_EXTRA_HEAT_COMMITMENT) {
           detectedType = Deposit::Type::HEAT;
           isHeatDeposit = true;
-        } else if (tag == TX_EXTRA_COLD_COMMITMENT) {
-          detectedType = Deposit::Type::COLD;
-          isColdDeposit = true;
-        }
+         } else if (tag == TX_EXTRA_SIMPLE_CD) {
+           detectedType = Deposit::Type::COLD;
+           isColdDeposit = true;
+         }
       } else {
         // No wallet-provided commitment — generate one based on deposit term
         std::vector<uint8_t> generatedExtra;
@@ -789,8 +800,8 @@ namespace CryptoNote
 
           std::vector<uint8_t> emptyMetadata;
           std::vector<uint8_t> emptyGiftSecret;
-          if (!CryptoNote::createTxExtraWithColdCommitment(commitment.commitment, depositAmount, context->depositTerm, 1, emptyMetadata, emptyGiftSecret, generatedExtra)) {
-            throw std::runtime_error("Failed to generate COLD commitment for term deposit");
+          if (!CryptoNote::createTxExtraWithSimpleCDCommitment(commitment.commitment, depositAmount, context->depositTerm, generatedExtra)) {
+            throw std::runtime_error("Failed to generate SimpleCD commitment for term deposit");
           }
 
           transaction->appendExtra(generatedExtra);

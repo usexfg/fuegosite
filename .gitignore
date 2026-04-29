@@ -14,7 +14,14 @@ Cargo.lock
 .claude
 .opencode
 .zed
-/usexfg.org
+/usexfg-website
+/digm-platform
+/CMakeFiles
+/competitor_data
+/monerotestnet
+/nanobanana-output
+/testnet-data
+/testnet-data2
 
 # OS files
 .DS_Store
@@ -24,7 +31,12 @@ Thumbs.db
 *.bak
 *.backup
 *.tmp
+.dsp
 
-build/
-build-check/
-build_swap_daemon/
+
+/CMakeFiles/
+/src/CMakeFiles/*
+/build
+/build-check/
+/build_swap_daemon/
+/xfg-stark-v3

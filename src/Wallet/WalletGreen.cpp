@@ -402,7 +402,7 @@ namespace CryptoNote
       std::error_code nodeError;
 
       throwIfStopped();
-      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), decoys,
+      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), deposit.height, decoys,
         [&requestFinished, &nodeError, this](std::error_code ec) {
           nodeError = ec;
           this->m_dispatcher.remoteSpawn(std::bind(asyncRequestCompletion, std::ref(requestFinished)));
@@ -671,7 +671,7 @@ namespace CryptoNote
       std::error_code nodeError;
 
       throwIfStopped();
-      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), decoys,
+      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), deposit.height, decoys,
         [&requestFinished, &nodeError, this](std::error_code ec) {
           nodeError = ec;
           this->m_dispatcher.remoteSpawn(std::bind(asyncRequestCompletion, std::ref(requestFinished)));
@@ -873,7 +873,7 @@ namespace CryptoNote
       std::error_code nodeError;
 
       throwIfStopped();
-      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), decoys,
+      m_node.getRandomCommitmentOutsForAmount(deposit.amount, m_currency.maxMixin(), deposit.height, decoys,
         [&requestFinished, &nodeError, this](std::error_code ec) {
           nodeError = ec;
           this->m_dispatcher.remoteSpawn(std::bind(asyncRequestCompletion, std::ref(requestFinished)));
@@ -1137,10 +1137,10 @@ namespace CryptoNote
       /* Add COLD commitment to transaction extra (tag 0xCD) */
       std::vector<uint8_t> extra;
       std::vector<uint8_t> gift_secret;
-      if (!CryptoNote::createTxExtraWithColdCommitment(finalCommitment.commitment, amount, term, 1, finalCommitment.metadata, gift_secret, extra))
-      {
-        throw std::system_error(make_error_code(CryptoNote::error::INTERNAL_WALLET_ERROR), "Failed to create COLD commitment in transaction extra");
-      }
+       if (!CryptoNote::createTxExtraWithSimpleCDCommitment(finalCommitment.commitment, amount, term, extra))
+       {
+         throw std::system_error(make_error_code(CryptoNote::error::INTERNAL_WALLET_ERROR), "Failed to create SimpleCD commitment in transaction extra");
+       }
 
       transaction->appendExtra(extra);
 
@@ -4106,7 +4106,7 @@ namespace CryptoNote
         if (field.type() == typeid(TransactionExtraHeatCommitment)) {
           deposit.depositType = Deposit::Type::HEAT;
           break;
-        } else if (field.type() == typeid(TransactionExtraColdCommitment)) {
+        } else if (field.type() == typeid(TransactionExtraSimpleCD)) {
           deposit.depositType = Deposit::Type::COLD;
           break;
         }

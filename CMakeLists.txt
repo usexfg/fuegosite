@@ -137,8 +137,8 @@ if(APPLE OR FREEBSD)
         endif()
 
         # Add Homebrew include paths for macOS (after standard library paths)
+        # Only use /opt/homebrew for ARM64, skip /usr/local to avoid x86_64 Boost
         include_directories(SYSTEM /opt/homebrew/include)
-        include_directories(SYSTEM /usr/local/include)
 
         # Ensure C targets also get proper system includes
         if(EXISTS "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
@@ -156,8 +156,8 @@ elseif(APPLE)
    include_directories(src/Platform/OSX)
    include_directories(src/Platform/Posix)
    # Add additional system include directories for macOS
+   # Only use /opt/homebrew for ARM64, skip /usr/local to avoid x86_64 Boost
    include_directories(SYSTEM /opt/homebrew/include)
-   include_directories(SYSTEM /usr/local/include)
 
    # Add C++ standard library headers explicitly
    if(EXISTS "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
@@ -188,7 +188,29 @@ if(MINGW)
 endif()
 
 # Required components - system is not needed in Boost 1.80+
-find_package(Boost REQUIRED COMPONENTS filesystem thread date_time chrono regex serialization program_options coroutine context atomic)
+# For ARM64 macOS, directly specify Boost paths to avoid x86_64 Boost in /usr/local
+if(APPLE AND EXISTS "/opt/homebrew/opt/boost@1.85/lib")
+    # Skip find_package and directly set Boost variables for ARM64
+    set(Boost_INCLUDE_DIRS "/opt/homebrew/opt/boost@1.85/include")
+    set(Boost_LIBRARIES
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_filesystem-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_thread-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_date_time-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_chrono-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_regex-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_serialization-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_program_options-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_coroutine-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_context-mt.dylib"
+        "/opt/homebrew/opt/boost@1.85/lib/libboost_atomic-mt.dylib"
+    )
+    set(Boost_FOUND TRUE)
+    message(STATUS "Using ARM64 Boost from /opt/homebrew/opt/boost@1.85")
+else()
+    # Required components - system is not needed in Boost 1.80+
+    find_package(Boost REQUIRED COMPONENTS filesystem thread date_time chrono regex serialization program_options coroutine context atomic)
+endif()
+set(Boost_USE_STATIC_LIBS ON)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 message(STATUS "Boost Found: ${Boost_INCLUDE_DIRS}")
 message(STATUS "Found Boost Version: ${Boost_VERSION}")
@@ -197,21 +219,16 @@ message(STATUS "Found Boost Version: ${Boost_VERSION}")
 if(MINGW)
   set(Boost_LIBRARIES "${Boost_LIBRARIES};ws2_32;mswsock;iphlpapi;bcrypt")
 elseif(APPLE)
-  # Ensure proper linking on macOS - check for current boost version first
-  if(EXISTS "/opt/homebrew/opt/boost/lib")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/boost/lib -Wl,-rpath,/opt/homebrew/opt/boost/lib")
-      link_directories("/opt/homebrew/opt/boost/lib")
-  elseif(EXISTS "/opt/homebrew/opt/boost@1.85/lib")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/boost@1.85/lib -Wl,-rpath,/opt/homebrew/opt/boost@1.85/lib")
-      link_directories("/opt/homebrew/opt/boost@1.85/lib")
+  # Ensure proper linking on macOS - prioritize Homebrew arm64 Boost
+  # First: Check for Homebrew arm64 at /opt/homebrew (Apple Silicon)
+  if(EXISTS "/opt/homebrew/opt/boost@1.85/lib")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/boost@1.85/lib -Wl,-rpath,/opt/homebrew/opt/boost@1.85/lib")
+    link_directories("/opt/homebrew/opt/boost@1.85/lib")
+  elseif(EXISTS "/opt/homebrew/opt/boost/lib")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/boost/lib -Wl,-rpath,/opt/homebrew/opt/boost/lib")
+    link_directories("/opt/homebrew/opt/boost/lib")
   endif()
-  if(EXISTS "/usr/local/opt/boost/lib")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/opt/boost/lib -Wl,-rpath,/usr/local/opt/boost/lib")
-      link_directories("/usr/local/opt/boost/lib")
-  elseif(EXISTS "/usr/local/opt/boost@1.85/lib")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/opt/boost@1.85/lib -Wl,-rpath,/usr/local/opt/boost@1.85/lib")
-      link_directories("/usr/local/opt/boost@1.85/lib")
-  endif()
+  # Skip x86_64 Boost at /usr/local on Apple Silicon to avoid architecture mismatch
 elseif(OPENBSD OR ANDROID)
   set(Boost_LIBRARIES "${Boost_LIBRARIES}")
 elseif(NOT MSVC)
@@ -313,17 +330,14 @@ message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 
 # Configure runtime path for Boost libraries on macOS
 if(APPLE)
+    # Prioritize Homebrew arm64 Boost only on Apple Silicon
     if(EXISTS "/opt/homebrew/opt/boost@1.85/lib")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/boost@1.85/lib -Wl,-rpath,/opt/homebrew/opt/boost@1.85/lib")
-    elseif(EXISTS "/usr/local/opt/boost@1.85/lib")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/opt/boost@1.85/lib -Wl,-rpath,/usr/local/opt/boost@1.85/lib")
     endif()
 
-    # Also add ICU library paths
+    # Also add ICU library paths (arm64 only)
     if(EXISTS "/opt/homebrew/opt/icu4c/lib")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/icu4c/lib -Wl,-rpath,/opt/homebrew/opt/icu4c/lib")
-    elseif(EXISTS "/usr/local/opt/icu4c/lib")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/opt/icu4c/lib -Wl,-rpath,/usr/local/opt/icu4c/lib")
     endif()
 endif()
 

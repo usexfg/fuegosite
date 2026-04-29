@@ -145,72 +145,10 @@ namespace CryptoNote
           transactionExtraFields.push_back(heatCommitment);
           break;
         }
-
-        case TX_EXTRA_YIELD_COMMITMENT:
-        {
-          // Format: [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
-          //         [cia_len: 1] [cia: N] [meta_len: 1] [meta: M] [gift_len: 1] [gift: P]
-          TransactionExtraYieldCommitment yieldCommitment;
-          read(iss, yieldCommitment.commitment.data, sizeof(yieldCommitment.commitment.data));
-          yieldCommitment.amount = 0;
-          for (int i = 0; i < 8; ++i) {
-            yieldCommitment.amount |= static_cast<uint64_t>(read<uint8_t>(iss)) << (i * 8);
-          }
-          yieldCommitment.term = 0;
-          for (int i = 0; i < 4; ++i) {
-            yieldCommitment.term |= static_cast<uint32_t>(read<uint8_t>(iss)) << (i * 8);
-          }
-          yieldCommitment.claimChainCode = read<uint8_t>(iss);
-          uint8_t ciaLen = read<uint8_t>(iss);
-          if (ciaLen > 0) {
-            std::vector<char> ciaBuf(ciaLen);
-            read(iss, ciaBuf.data(), ciaLen);
-            yieldCommitment.CIAId.assign(ciaBuf.begin(), ciaBuf.end());
-          }
-          uint8_t yieldMetaSize = read<uint8_t>(iss);
-          if (yieldMetaSize > 0) {
-            yieldCommitment.metadata.resize(yieldMetaSize);
-            read(iss, yieldCommitment.metadata.data(), yieldMetaSize);
-          }
-          uint8_t yieldGiftSize = read<uint8_t>(iss);
-          if (yieldGiftSize > 0) {
-            yieldCommitment.gift_secret.resize(yieldGiftSize);
-            read(iss, yieldCommitment.gift_secret.data(), yieldGiftSize);
-          }
-          transactionExtraFields.push_back(yieldCommitment);
-          break;
-        }
-
-        case TX_EXTRA_COLD_COMMITMENT:
-        {
-          // Format: [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
-          //         [meta_len: 1] [meta: N] [gift_len: 1] [gift: M]
-          TransactionExtraColdCommitment coldCommitment;
-          read(iss, coldCommitment.commitment.data, sizeof(coldCommitment.commitment.data));
-          coldCommitment.amount = 0;
-          for (int i = 0; i < 8; ++i) {
-            coldCommitment.amount |= static_cast<uint64_t>(read<uint8_t>(iss)) << (i * 8);
-          }
-          coldCommitment.term = 0;
-          for (int i = 0; i < 4; ++i) {
-            coldCommitment.term |= static_cast<uint32_t>(read<uint8_t>(iss)) << (i * 8);
-          }
-          coldCommitment.claimChainCode = read<uint8_t>(iss);
-          uint8_t coldMetaSize = read<uint8_t>(iss);
-          if (coldMetaSize > 0) {
-            coldCommitment.metadata.resize(coldMetaSize);
-            read(iss, coldCommitment.metadata.data(), coldMetaSize);
-          }
-          uint8_t coldGiftSize = read<uint8_t>(iss);
-          if (coldGiftSize > 0) {
-            coldCommitment.gift_secret.resize(coldGiftSize);
-            read(iss, coldCommitment.gift_secret.data(), coldGiftSize);
-          }
-          transactionExtraFields.push_back(coldCommitment);
-          break;
-        }
-
         case TX_EXTRA_COLD_MIGRATION:
+        {
+          // Format: [originalTxHash: 32] [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
+          TransactionExtraColdMigration migration;
         {
           // Format: [originalTxHash: 32] [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
           TransactionExtraColdMigration migration;
@@ -224,7 +162,7 @@ namespace CryptoNote
           for (int i = 0; i < 4; ++i) {
             migration.term |= static_cast<uint32_t>(read<uint8_t>(iss)) << (i * 8);
           }
-          migration.claimChainCode = read<uint8_t>(iss);
+          migration.targetChainId = read<uint8_t>(iss);
           transactionExtraFields.push_back(migration);
           break;
         }
@@ -234,17 +172,6 @@ namespace CryptoNote
           TransactionExtraBurnReceipt burnReceipt;
           if (getBurnReceiptFromExtra(transactionExtra, burnReceipt)) {
             transactionExtraFields.push_back(burnReceipt);
-          } else {
-            return false;
-          }
-          break;
-        }
-
-        case TX_EXTRA_COLD_RECEIPT:
-        {
-          TransactionExtraDepositReceipt depositReceipt;
-          if (getDepositReceiptFromExtra(transactionExtra, depositReceipt)) {
-            transactionExtraFields.push_back(depositReceipt);
           } else {
             return false;
           }
@@ -319,16 +246,6 @@ namespace CryptoNote
     bool operator()(const TransactionExtraHeatCommitment &t)
     {
       return addHeatCommitmentToExtra(extra, t);
-    }
-
-    bool operator()(const TransactionExtraYieldCommitment &t)
-    {
-      return addYieldCommitmentToExtra(extra, t);
-    }
-
-    bool operator()(const TransactionExtraCDDepositSecret &t)
-    {
-      return addCDDepositSecretToExtra(extra, t);
     }
 
     bool operator()(const TransactionExtraBurnReceipt &t)
@@ -648,6 +565,16 @@ namespace CryptoNote
     s(CIAId, "CIAId");
     s(metadata, "metadata");
     s(gift_secret, "gift_secret");
+    return true;
+  }
+
+  bool TransactionExtraColdMigration::serialize(ISerializer &s)
+  {
+    s(originalTxHash, "originalTxHash");
+    s(commitment, "commitment");
+    s(amount, "amount");
+    s(term, "term");
+    s(targetChainId, "targetChainId");
     return true;
   }
 
@@ -1085,7 +1012,8 @@ namespace CryptoNote
     }
 
     // Chain code (1 byte)
-    tx_extra.push_back(migration.claimChainCode);
+    tx_extra.push_back(migration.targetChainId);
+
 
     return true;
   }
@@ -1670,6 +1598,30 @@ bool getDepositSecretFromExtra(const std::vector<uint8_t>& tx_extra,
     return true;
   }
   return false;
+}
+
+// Simple on-chain CD commitment - minimal fields for fee pool interest calculation
+bool createTxExtraWithSimpleCDCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term, std::vector<uint8_t>& extra) {
+  extra.push_back(TX_EXTRA_COLD_COMMITMENT);  // Reuse COLD tag (0xCD)
+  
+  // Commitment hash (32 bytes)
+  extra.insert(extra.end(), commitment.data, commitment.data + 32);
+  
+  // Amount (8 bytes, little-endian)
+  for (int i = 0; i < 8; ++i) {
+    extra.push_back(static_cast<uint8_t>(amount & 0xFF));
+    amount >>= 8;
+  }
+  
+  // Term (4 bytes, little-endian)
+  for (int i = 0; i < 4; ++i) {
+    extra.push_back(static_cast<uint8_t>(term & 0xFF));
+    term >>= 8;
+  }
+  
+  // No chain_code, metadata, or gift_secret for simple on-chain CDs
+  
+  return true;
 }
 
 } // namespace CryptoNote

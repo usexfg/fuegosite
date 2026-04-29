@@ -103,6 +103,7 @@ namespace CryptoNote {
     uint64_t getCurrentEpochSwapFees() const { return m_currentEpochSwapFees; }
     uint64_t getTotalCdLocked() const { return m_totalCdLocked; }
     uint64_t getTreasuryBalance() const { return m_treasuryBalance; }
+    uint64_t getRolloverVaultBalance() const { return m_rolloverVaultBalance; }
     uint8_t getBlockMajorVersionForHeight(uint32_t height) const;
     uint8_t blockMajorVersion;
     bool addNewBlock(const Block& bl_, block_verification_context& bvc);
@@ -116,7 +117,7 @@ namespace CryptoNote {
       uint32_t& totalBlockCount, uint32_t& startBlockIndex);
     bool handleGetObjects(NOTIFY_REQUEST_GET_OBJECTS_request& arg, NOTIFY_RESPONSE_GET_OBJECTS_request& rsp); //Deprecated. Should be removed with CryptoNoteProtocolHandler.
     bool getRandomOutsByAmount(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS_request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS_response& res);
-    bool getRandomCommitmentOutputsForAmount(uint64_t amount, uint64_t count, std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result);
+    bool getRandomCommitmentOutputsForAmount(uint64_t amount, uint64_t count, std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result, uint32_t max_height = 0);
     bool getBackwardBlocksSize(size_t from_height, std::vector<size_t>& sz, size_t count);
     bool getTransactionOutputGlobalIndexes(const Crypto::Hash& tx_id, std::vector<uint32_t>& indexs);
     bool get_out_by_msig_gindex(uint64_t amount, uint64_t gindex, MultisignatureOutput& out);
@@ -362,21 +363,23 @@ namespace CryptoNote {
     CommitmentOutputsContainer     m_commitmentOutputs;
 
     // Fee pool: accumulates swap fees, distributed as interest to CD holders.
-    uint64_t m_feePoolBalance = 0;        // total XFG available for CD interest payouts
+    uint64_t m_feePoolBalance = 0;        // total XFG available for CD interest payouts (69% of swap fees)
     uint64_t m_currentEpochSwapFees = 0;  // fees accumulated in current epoch (reset each epoch boundary)
     uint64_t m_totalCdLocked = 0;         // total XFG locked in CDs (for epoch rate calculation)
     // Per-block swap-fee contribution tracking — used by popBlock to undo epoch accumulator.
     std::deque<uint64_t> m_blockSwapFeeContributions;
+    std::deque<std::pair<uint64_t, uint64_t>> m_blockEpochDistributions;  // <treasuryShare, rolloverShare> for epoch boundaries
 
     // Cumulative fee pool accounting (lifetime totals, never reset)
     uint64_t m_totalSwapFeesCollected = 0;    // all swap fees ever entering the pool
     uint64_t m_totalCdInterestPaid = 0;       // total interest paid out to CD holders
-    uint64_t m_totalTreasuryAccrued = 0;      // total 10% accumulated to treasury
-
-
+    uint64_t m_totalTreasuryAccrued = 0;      // total 20% treasury share accrued
+    uint64_t m_totalRolloverAccrued = 0;      // total 10% rollover vault share accrued
 
     // Treasury: 20% of swap fees accumulates for protocol use
     uint64_t m_treasuryBalance = 0;
+    // Rollover Vault: 10% of swap fees for promotional interest bonuses
+    uint64_t m_rolloverVaultBalance = 0;
     UpgradeDetector m_upgradeDetectorV2;
     UpgradeDetector m_upgradeDetectorV3;
     UpgradeDetector m_upgradeDetectorV4;

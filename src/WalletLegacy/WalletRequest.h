@@ -63,21 +63,22 @@ private:
 class WalletGetRandomCommitmentOutsRequest: public WalletRequest
 {
 public:
-  WalletGetRandomCommitmentOutsRequest(uint64_t amount, uint64_t outsCount,
+  WalletGetRandomCommitmentOutsRequest(uint64_t amount, uint64_t outsCount, uint32_t maxHeight,
       std::shared_ptr<SendTransactionContext> context, Callback cb)
-    : m_amount(amount), m_outsCount(outsCount), m_context(context), m_cb(cb) {}
+    : m_amount(amount), m_outsCount(outsCount), m_maxHeight(maxHeight), m_context(context), m_cb(cb) {}
 
   virtual ~WalletGetRandomCommitmentOutsRequest() {}
 
   virtual void perform(INode& node, std::function<void(WalletRequest::Callback, std::error_code)> cb) override
   {
-    node.getRandomCommitmentOutsForAmount(m_amount, m_outsCount,
+    node.getRandomCommitmentOutsForAmount(m_amount, m_outsCount, m_maxHeight,
       std::ref(m_context->commitmentOuts), std::bind(cb, m_cb, std::placeholders::_1));
   }
 
 private:
   uint64_t m_amount;
   uint64_t m_outsCount;
+  uint32_t m_maxHeight;
   std::shared_ptr<SendTransactionContext> m_context;
   Callback m_cb;
 };

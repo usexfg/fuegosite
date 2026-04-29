@@ -47,6 +47,8 @@ namespace command_line
 
     const char* name;
     const char* description;
+    std::vector<T> default_value;  // Add default_value member
+    bool not_use_default;
   };
 
   template<typename T>
@@ -58,6 +60,7 @@ namespace command_line
 
     const char* name;
     const char* description;
+    T default_value;  // For compatibility with get_arg
   };
 
   template<typename T>
@@ -173,7 +176,15 @@ namespace command_line
   template<typename T, bool required>
   T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required>& arg)
   {
-    return vm[arg.name].template as<T>();
+    try {
+      if (vm.count(arg.name) == 0) {
+        return arg.default_value;
+      }
+      return vm[arg.name].template as<T>();
+    } catch (const boost::bad_any_cast&) {
+      // For Boost 1.85+ compatibility - when default_value=0 causes cast issues
+      return arg.default_value;
+    }
   }
  
   template<>

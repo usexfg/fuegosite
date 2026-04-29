@@ -18,6 +18,7 @@
 #include "SwapPeerProtocol.h"
 #include "Common/StringTools.h"
 #include "CryptoNoteCore/CryptoNoteTools.h"
+#include "CryptoNoteConfig.h"
 #include "crypto/hash.h"
 #include "crypto/crypto.h"
 
@@ -409,13 +410,16 @@ bool SwapDaemon::processSwap(const std::string& swapId) {
     case SwapState::ADAPTOR_ESCROW_FUNDED:
       m_logger(Logging::INFO) << "  Escrow funded (tx: "
         << Common::podToHex(params.escrowTxHash) << ").";
-      // Phase 1: 1% sender surcharge added to escrow amount
+      // Phase 1: 1% sender surcharge added to escrow amount (total swap fee = 2%: 1% init + 1% claim)
       if (params.xfgAmount > 0) {
-        uint64_t senderSurcharge = params.xfgAmount / 100;
+        uint64_t senderSurcharge = (params.xfgAmount * CryptoNote::parameters::SWAP_FEE_RATE_BPS) 
+                                 / CryptoNote::parameters::SWAP_FEE_RATE_DIVISOR;
         if (senderSurcharge > 0) {
           params.xfgAmount += senderSurcharge;
           m_feePoolBalance += senderSurcharge;
           m_currentEpochSwapFees += senderSurcharge;
+          m_logger(Logging::INFO) << "  Swap initiation fee (1%): " << senderSurcharge 
+                                   << " XFG added to fee pool";
         }
       }
       m_logger(Logging::INFO) << "  Next: exchange Musig2 nonces and create adaptor pre-sigs.";

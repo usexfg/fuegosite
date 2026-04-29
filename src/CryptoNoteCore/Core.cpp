@@ -683,8 +683,8 @@ bool core::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_
   return m_blockchain.getRandomOutsByAmount(req, res);
 }
 
-bool core::get_random_commitment_outs_for_amount(uint64_t amount, uint64_t count, std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result) {
-  return m_blockchain.getRandomCommitmentOutputsForAmount(amount, count, result);
+bool core::get_random_commitment_outs_for_amount(uint64_t amount, uint64_t count, uint32_t maxHeight, std::vector<COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS_out_entry>& result) {
+  return m_blockchain.getRandomCommitmentOutputsForAmount(amount, count, maxHeight, result);
 }
 
 bool core::get_tx_outputs_gindexs(const Crypto::Hash& tx_id, std::vector<uint32_t>& indexs) {

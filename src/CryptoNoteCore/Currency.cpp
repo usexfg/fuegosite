@@ -1463,13 +1463,14 @@ double Currency::getBurnPercentage() const {
     difficultyCut(parameters::DIFFICULTY_CUT);
 
     depositMinAmount(parameters::DEPOSIT_MIN_AMOUNT);
-    depositMinTerm(parameters::COLD_MIN_TERM);
-    depositMaxTerm(parameters::COLD_MAX_TERM);
+    // CD term in blocks = epochs * epoch_duration
+    depositMinTerm(parameters::CD_MIN_EPOCHS * parameters::EPOCH_DURATION_BLOCKS);
+    depositMaxTerm(parameters::CD_MAX_EPOCHS * parameters::EPOCH_DURATION_BLOCKS);
 
-    // Override deposit terms for testnet (shorter terms for testing)
+    // Override deposit terms for testnet (shorter epochs for testing)
     if (m_currency.m_testnet) {
-      depositMinTerm(parameters::TESTNET_COLD_MIN_TERM);
-      depositMaxTerm(parameters::TESTNET_COLD_MAX_TERM);
+      depositMinTerm(parameters::TESTNET_CD_MIN_EPOCHS * parameters::TESTNET_EPOCH_DURATION_BLOCKS);
+      depositMaxTerm(parameters::TESTNET_CD_MAX_EPOCHS * parameters::TESTNET_EPOCH_DURATION_BLOCKS);
     }
 
     // Burn deposit configuration

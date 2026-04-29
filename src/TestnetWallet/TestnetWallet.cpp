@@ -70,9 +70,9 @@ namespace CryptoNote
   {
     // Add testnet-specific deposit commands (in addition to inherited ones)
     m_consoleHandler.setHandler("burn", boost::bind(&testnet_wallet::burn, this, boost::arg<1>()), "burn <amount> - Create a HEAT burn (0.8, 8, 80, 800 TEST)");
-    m_consoleHandler.setHandler("cold", boost::bind(&testnet_wallet::cold, this, boost::arg<1>()), "cold <amount> <term_code> - Create a Certificate of Ledger Deposit (0.8, 8, 80, 800 TEST with terms 3 (3months) or 12 (1yr)");
-    m_consoleHandler.setHandler("elderking_ceremony", boost::bind(&testnet_wallet::elderking_ceremony, this, boost::arg<1>()), "elderking_ceremony - (DEPRECATED)");
-    m_consoleHandler.setHandler("unstake", boost::bind(&testnet_wallet::unstake, this, boost::arg<1>()), "unstake - (DEPRECATED)");
+    // m_consoleHandler.setHandler("cold", boost::bind(&testnet_wallet::cold, this, boost::arg<1>()), "cold <amount> <term_code> - Create a Certificate of Ledger Deposit (0.8, 8, 80, 800 TEST with terms 3 (3months) or 12 (1yr)");
+    // m_consoleHandler.setHandler("elderking_ceremony", boost::bind(&testnet_wallet::elderking_ceremony, this, boost::arg<1>()), "elderking_ceremony - (DEPRECATED)");
+    // m_consoleHandler.setHandler("unstake", boost::bind(&testnet_wallet::unstake, this, boost::arg<1>()), "unstake - (DEPRECATED)");
     m_consoleHandler.setHandler("list_burns", boost::bind(&testnet_wallet::list_burns, this, boost::arg<1>()), "list_burns - List all burn transactions.");
 
     // @ Alias system commands (inherited from simple_wallet)
@@ -337,6 +337,7 @@ namespace CryptoNote
       success_msg_writer() << "  Nullifier:  " << Common::podToHex(starkResult.nullifier);
       success_msg_writer() << "";
 
+      /*
       std::vector<uint8_t> extra;
       CryptoNote::TransactionExtraColdCommitment coldCommitment;
       coldCommitment.commitment = starkResult.commitment;
@@ -383,6 +384,7 @@ namespace CryptoNote
 
       success_msg_writer() << "COLD txn created. TX ID: " << txId;
       return true;
+      */
     }
     catch (const std::exception& e)
     {
@@ -392,18 +394,18 @@ namespace CryptoNote
   }
 
   //----------------------------------------------------------------------------------------------------
-  bool CryptoNote::testnet_wallet::elderking_ceremony(const std::vector<std::string> &args)
-  {
-    fail_msg_writer() << "The elderking_ceremony command is no longer available.";
-    return true;
-  }
+  // bool CryptoNote::testnet_wallet::elderking_ceremony(const std::vector<std::string> &args)
+  // {
+  //   fail_msg_writer() << "The elderking_ceremony command is no longer available.";
+  //   return true;
+  // }
 
   //----------------------------------------------------------------------------------------------------
-  bool CryptoNote::testnet_wallet::unstake(const std::vector<std::string> &args)
-  {
-    fail_msg_writer() << "The unstake command is no longer available.";
-    return true;
-  }
+  // bool CryptoNote::testnet_wallet::unstake(const std::vector<std::string> &args)
+  // {
+  //   fail_msg_writer() << "The unstake command is no longer available.";
+  //   return true;
+  // }
 
   //----------------------------------------------------------------------------------------------------
   bool CryptoNote::testnet_wallet::list_burns(const std::vector<std::string> &args)
