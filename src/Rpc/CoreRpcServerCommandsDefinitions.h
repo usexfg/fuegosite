@@ -325,10 +325,12 @@ struct COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS {
   struct request {
     uint64_t amount;
     uint64_t outs_count;
+    uint32_t max_height = 0;
 
     void serialize(ISerializer& s) {
       KV_MEMBER(amount)
       KV_MEMBER(outs_count)
+      KV_MEMBER(max_height)
     }
   };
 

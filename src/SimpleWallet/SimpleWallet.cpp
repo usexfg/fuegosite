@@ -1016,58 +1016,6 @@ bool simple_wallet::deposit(const std::vector<std::string> &args)
     size_t amount_index = std::distance(valid_amounts.begin(), it);
     std::string amount_label = amount_labels[amount_index];
 
-    // Parse term in epochs (1-72 epochs, where 1 epoch = 900 blocks ≈ 5 days)
-    if (args.size() < 2) {
-    fail_msg_writer() << "Usage: deposit <amount> <term_in_epochs>";
-    fail_msg_writer() << "Amount tiers: 0.8, 8, 80, 800 XFG";
-    fail_msg_writer() << "Valid term tiers (epochs): 1, 18 (3 mo), 36 (6 mo), 72 (1 yr)";
-    fail_msg_writer() << "";
-    fail_msg_writer() << "For XFG burns (permanent): burn <amount>";
-    fail_msg_writer() << "";
-    fail_msg_writer() << "ETH address is provided later when generating STARK proof.";
-    fail_msg_writer() << "         This prevents linking your Fuego wallet to your ETH address on-chain.";
-    return true;
-  }
-
-  try
-  {
-    // Parse and validate amount
-    uint64_t deposit_amount = 0;
-    bool ok = m_currency.parseAmount(args[0], deposit_amount);
-
-    if (!ok || 0 == deposit_amount)
-    {
-      fail_msg_writer() << "Invalid amount format: " << args[0];
-      return true;
-    }
-
-    // Validate amount is one of the allowed CD tiers
-    std::vector<uint64_t> valid_amounts = {
-      CryptoNote::parameters::AMOUNT_TIER_0,                       // 0.8 XFG
-      CryptoNote::parameters::AMOUNT_TIER_1,                       // 8 XFG
-      CryptoNote::parameters::AMOUNT_TIER_2,                       // 80 XFG
-      CryptoNote::parameters::AMOUNT_TIER_3                        // 800 XFG
-    };
-
-    std::vector<std::string> amount_labels = {
-      "0.8 XFG",
-      "8 XFG",
-      "80 XFG",
-      "800 XFG"
-    };
-
-    auto it = std::find(valid_amounts.begin(), valid_amounts.end(), deposit_amount);
-    if (it == valid_amounts.end()) {
-      fail_msg_writer() << "Invalid amount. Valid tiers:";
-      for (const auto& label : amount_labels) {
-        fail_msg_writer() << "  " << label;
-      }
-      return true;
-    }
-
-    size_t amount_index = std::distance(valid_amounts.begin(), it);
-    std::string amount_label = amount_labels[amount_index];
-
     // Parse term in epochs (1, 18, 36, 72)
     uint32_t term_epochs = boost::lexical_cast<uint32_t>(args[1]);
     

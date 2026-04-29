@@ -507,8 +507,9 @@ void NodeRpcProxy::getRandomCommitmentOutsForAmount(uint64_t amount, uint64_t ou
     return;
   }
 
-  scheduleRequest(std::bind(&NodeRpcProxy::doGetRandomCommitmentOutsForAmount, this, amount, outsCount, maxHeight, std::ref(result)),
-    callback);
+  scheduleRequest([this, amount, outsCount, maxHeight, &result]() {
+    return doGetRandomCommitmentOutsForAmount(amount, outsCount, maxHeight, result);
+  }, callback);
 }
 
 std::error_code NodeRpcProxy::doGetRandomCommitmentOutsForAmount(uint64_t amount, uint64_t outsCount, uint32_t maxHeight,

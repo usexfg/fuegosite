@@ -60,17 +60,10 @@
 
 // 0xCD tag: COLD (CD) deposits
 #define TX_EXTRA_SIMPLE_CD                0xCD  // Simple CD deposits
-// 0x69 tag: Receipts for both COLD & YIELD
-// #define TX_EXTRA_COLD_RECEIPT               0x69  // All Deposits receipt
-// 
-// 0x07 FUEGO MOB Custom Interest Assets   Check full compatibility -
-// #define TX_EXTRA_YIELD_COMMITMENT           0x07  //  yield commitment
-// 
-// 0x_C tags: Elderfier system (consensus/messaging)
-// #define TX_EXTRA_ELDERFIER_MESSAGE          0xEC  // Elderfier messaging/consensus
-// 
-// 0xEA tag: @ Alias registration (on-chain)
-// #define TX_EXTRA_ALIAS                      0xEA  // @ alias registration
+#define TX_EXTRA_COLD_COMMITMENT            0xCD  // Alias for simple CD
+#define TX_EXTRA_COLD_RECEIPT               0x69  // All Deposits receipt
+#define TX_EXTRA_YIELD_COMMITMENT           0x07  // yield commitment
+#define TX_EXTRA_ALIAS                      0xEA  // @ alias registration
 // 
 // 0xCE tag: COLD migration (register v3 commitment for a pre-v3 legacy deposit)
 #define TX_EXTRA_COLD_MIGRATION             0xCE
@@ -132,7 +125,17 @@ struct TransactionExtraSimpleCD {
   bool serialize(ISerializer& serializer);
 };
 
-/*
+struct TransactionExtraColdCommitment {
+  Crypto::Hash commitment;
+  uint64_t amount;
+  uint32_t term;
+  uint8_t claimChainCode;
+  std::vector<uint8_t> metadata;
+  std::vector<uint8_t> gift_secret;
+
+  bool serialize(ISerializer& serializer);
+};
+
 struct TransactionExtraYieldCommitment {
   Crypto::Hash commitment;       // 🔒 SECURE: Only commitment hash on blockchain
   uint64_t amount;               // Principal amount in XFG
@@ -141,12 +144,10 @@ struct TransactionExtraYieldCommitment {
   uint8_t claimChainCode;        // Claim chain (1=ETH, 2=SOL, 3=C0DL)
   std::string CIAId;             // Crypto Interest Asset ID (hash of token/asset)
   std::vector<uint8_t> gift_secret;        // Secret key encrypted with recipient's view key
-                                             // Only used for gifted deposits, otherwise dummy data with pattern
-
+                                              // Only used for gifted deposits, otherwise dummy data with pattern
 
   bool serialize(ISerializer& serializer);
 };
-*/
 
 // @ Alias registration structure (0xEA)
 struct TransactionExtraAliasRegistration {
@@ -257,7 +258,7 @@ bool addDepositSecretToExtra(std::vector<uint8_t>& tx_extra,
 bool getDepositSecretFromExtra(const std::vector<uint8_t>& tx_extra,
                                 TransactionExtraDepositSecret& out);
 
-typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraAliasRegistration, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraSimpleCD, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
+typedef boost::variant<CryptoNote::TransactionExtraPadding, CryptoNote::TransactionExtraPublicKey, CryptoNote::TransactionExtraNonce, CryptoNote::TransactionExtraMergeMiningTag, CryptoNote::tx_extra_message, CryptoNote::TransactionExtraTTL, CryptoNote::TransactionExtraAliasRegistration, CryptoNote::TransactionExtraHeatCommitment, CryptoNote::TransactionExtraSimpleCD, CryptoNote::TransactionExtraColdCommitment, CryptoNote::TransactionExtraColdMigration, CryptoNote::TransactionExtraBurnReceipt, CryptoNote::TransactionExtraDepositReceipt> TransactionExtraField;
 
 
 
@@ -283,6 +284,7 @@ void setPaymentIdToTransactionExtraNonce(BinaryArray& extra_nonce, const Crypto:
 bool getPaymentIdFromTransactionExtraNonce(const BinaryArray& extra_nonce, Crypto::Hash& payment_id);
 bool appendMergeMiningTagToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraMergeMiningTag& mm_tag);
 bool append_message_to_extra(std::vector<uint8_t>& tx_extra, const tx_extra_message& message);
+bool addColdMigrationToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraColdMigration& migration);
 std::vector<std::string> get_messages_from_extra(const std::vector<uint8_t>& extra, const Crypto::PublicKey &txkey, const Crypto::SecretKey *recepient_secret_key);
 void appendTTLToExtra(std::vector<uint8_t>& tx_extra, uint64_t ttl);
 bool getMergeMiningTagFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraMergeMiningTag& mm_tag);
@@ -298,23 +300,17 @@ bool addHeatCommitmentToExtra(std::vector<uint8_t>& tx_extra, const TransactionE
 bool getHeatCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraHeatCommitment& commitment);
 
 // Yield commitment helper functions
-/*
 bool createTxExtraWithYieldCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term, const std::string& CIAId, const std::vector<uint8_t>& metadata, uint8_t claimChainCode, const std::vector<uint8_t>& gift_secret, std::vector<uint8_t>& extra);
 bool addYieldCommitmentToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraYieldCommitment& commitment);
 bool getYieldCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraYieldCommitment& commitment);
-*/
 // @ Alias registration helper functions
 bool addAliasToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraAliasRegistration& alias);
 bool getAliasFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraAliasRegistration& alias);
 // DIGM helper functions will be implemented later
 // COLD Commitment helper functions (unified with HEAT style)
-/*
-bool createTxExtraWithColdCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term,
-                                       uint8_t claimChainCode, const std::vector<uint8_t>& metadata,
-                                       const std::vector<uint8_t>& gift_secret, std::vector<uint8_t>& extra);
+bool createTxExtraWithColdCommitment(const Crypto::Hash& commitment, uint64_t amount, uint32_t term, uint8_t claimChainCode, const std::vector<uint8_t>& metadata, const std::vector<uint8_t>& gift_secret, std::vector<uint8_t>& extra);
 bool addColdCommitmentToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraColdCommitment& commitment);
 bool getColdCommitmentFromExtra(const std::vector<uint8_t>& tx_extra, TransactionExtraColdCommitment& commitment);
-*/
 // Legacy aliases for backward compatibility
 /*
 inline bool addCDDepositSecretToExtra(std::vector<uint8_t>& tx_extra, const TransactionExtraColdCommitment& c) {

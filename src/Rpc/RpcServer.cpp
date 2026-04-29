@@ -652,7 +652,7 @@ bool RpcServer::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOU
 bool RpcServer::on_get_random_commitment_outs(const COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS::request& req,
                                                 COMMAND_RPC_GET_RANDOM_COMMITMENT_OUTPUTS::response& res) {
   res.status = "Failed";
-  if (!m_core.get_random_commitment_outs_for_amount(req.amount, req.outs_count, res.outs, req.max_height)) {
+  if (!m_core.get_random_commitment_outs_for_amount(req.amount, req.outs_count, req.max_height, res.outs)) {
     return true;
   }
   res.status = CORE_RPC_STATUS_OK;
@@ -1925,7 +1925,7 @@ bool RpcServer::on_prove_collateral(const COMMAND_RPC_PROVE_COLLATERAL::request&
           break;
         }
         // Check for CD deposit commitment (0xCD = 205)
-        else if (field.type() == typeid(TransactionExtraCDDepositSecret)) {
+        else if (field.type() == typeid(TransactionExtraDepositSecret)) {
           res.hasCommitment = true;
           res.commitmentType = 0xCD; // 205
           break;

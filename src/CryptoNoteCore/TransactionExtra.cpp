@@ -149,9 +149,6 @@ namespace CryptoNote
         {
           // Format: [originalTxHash: 32] [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
           TransactionExtraColdMigration migration;
-        {
-          // Format: [originalTxHash: 32] [commitment: 32] [amount: 8 LE] [term: 4 LE] [chain: 1]
-          TransactionExtraColdMigration migration;
           read(iss, migration.originalTxHash.data, sizeof(migration.originalTxHash.data));
           read(iss, migration.commitment.data, sizeof(migration.commitment.data));
           migration.amount = 0;
@@ -251,6 +248,27 @@ namespace CryptoNote
     bool operator()(const TransactionExtraBurnReceipt &t)
     {
       return addBurnReceiptToExtra(extra, t);
+    }
+    
+    bool operator()(const TransactionExtraSimpleCD &t)
+    {
+      // Simple CD uses a helper not explicitly named 'addSimpleCDToExtra' but we can define it or use a lambda.
+      // Wait, let's see if there's an addSimpleCDToExtra.
+      // If not, I'll implement the serialization here or create the function.
+      // Let's check if it exists.
+      // Actually, I can just implement it here:
+      extra.push_back(TX_EXTRA_SIMPLE_CD);
+      extra.insert(extra.end(), t.commitment.data, t.commitment.data + sizeof(t.commitment.data));
+      uint64_t amount = t.amount;
+      for (int i = 0; i < 8; ++i) { extra.push_back(static_cast<uint8_t>(amount & 0xFF)); amount >>= 8; }
+      uint32_t term = t.term;
+      for (int i = 0; i < 4; ++i) { extra.push_back(static_cast<uint8_t>(term & 0xFF)); term >>= 8; }
+      return true;
+    }
+
+    bool operator()(const TransactionExtraColdCommitment &t)
+    {
+      return addColdCommitmentToExtra(extra, t);
     }
 
     bool operator()(const TransactionExtraDepositReceipt &t)
@@ -563,6 +581,17 @@ namespace CryptoNote
     s(term, "term");
     s(claimChainCode, "claimChainCode");
     s(CIAId, "CIAId");
+    s(metadata, "metadata");
+    s(gift_secret, "gift_secret");
+    return true;
+  }
+
+  bool TransactionExtraColdCommitment::serialize(ISerializer &s)
+  {
+    s(commitment, "commitment");
+    s(amount, "amount");
+    s(term, "term");
+    s(claimChainCode, "claimChainCode");
     s(metadata, "metadata");
     s(gift_secret, "gift_secret");
     return true;

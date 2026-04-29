@@ -946,7 +946,7 @@ difficulty_type Blockchain::getDifficultyForNextBlock() {
       currentHeight <= lastCheckpointHeight + difficultyWindow + 10) {
     // Use a reasonable stabilization difficulty based on recent network state
     // This should be approximately the expected difficulty at the checkpoint boundary
-    difficulty_type stabilizationDifficulty = 500000; // ~500K is reasonable for mainnet post-v9
+    difficulty_type stabilizationDifficulty = m_blocks[lastCheckpointHeight].cumulative_difficulty - m_blocks[lastCheckpointHeight - 1].cumulative_difficulty; // Use actual difficulty at checkpoint boundary
     logger(DEBUGGING) << "Using stabilization difficulty " << stabilizationDifficulty
                       << " for height " << currentHeight
                       << " (checkpoint transition, last checkpoint: " << lastCheckpointHeight << ")";
@@ -3081,7 +3081,7 @@ uint64_t Blockchain::depositAmountAtHeight(size_t height) const {
                 entry.amount = migration.amount;
                 entry.term = migration.term;
                 entry.type = CommitmentEntry::Type::COLD;
-                entry.targetChainId = migration.claimChainCode;
+                entry.targetChainId = migration.targetChainId;
                 entry.isLegacyMigration = true;  // Confirmed: original tx has MultisignatureOutput
                 m_commitmentIndex.addCommitment(entry);
 
