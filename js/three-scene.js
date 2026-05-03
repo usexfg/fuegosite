@@ -17,7 +17,7 @@
   
   // Mobile detection
   const isMobile = window.innerWidth < 768;
-  const particleCount = isMobile ? 100 : 300;
+  let particleCount = isMobile ? 100 : 300;
 
   // Scene setup
   const canvas = document.getElementById('three-canvas');
@@ -145,8 +145,11 @@
     if (Math.abs(newParticleCount - particleCount) > 50) {
       if (particles) {
         scene.remove(particles);
+        particles.geometry.dispose();
+        particles.material.dispose();
         particles = null;
       }
+      particleCount = newParticleCount;
       initHeroParticles();
     }
   }
