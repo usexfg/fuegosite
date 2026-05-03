@@ -29,6 +29,10 @@
 #include "Solana/SolRpcClient.h"
 #include "Monero/MoneroRpcClient.h"
 
+namespace CryptoNote {
+  class SwapOfferRelay;
+}
+
 #include <string>
 #include <memory>
 #include <thread>
@@ -105,13 +109,27 @@ public:
   // Must be called before processSwap() can fund escrow.
   void setWalletRpc(const std::string& host, uint16_t port);
 
+  void setSwapRelay(CryptoNote::SwapOfferRelay* relay) { m_swapRelay = relay; }
+
   // Start a new swap as initiator (Bob: has XFG, wants counterparty coin).
   bool initiate(SwapParams params);
 
   // Accept an incoming swap proposal.
-  bool accept(const std::string& swapId);
+  struct AcceptResult {
+    bool success;
+    std::string warning;
+  };
+  AcceptResult accept(const std::string& swapId);
+  
+  // Handle an incoming swap request from a taker for a soft order
+  bool handleSwapRequest(const std::string& offerId, uint64_t amount,
+                         const std::string& takerPubKey, const std::string& proofOfFunds);
+
+  // Returns active AFK offers that are still valid (>= 1 hour remaining)
+  std::vector<SwapStateMachine> getActiveAfkOffers();
 
   // Scan active swaps and refund any that have timed out.
+
   bool checkTimeouts();
 
   // Advance a specific swap to its next state based on chain observations.
@@ -200,6 +218,8 @@ public:
    std::unique_ptr<EthRpcClient>    m_ethClient;
    std::unique_ptr<SolRpcClient>    m_solClient;
    std::unique_ptr<MoneroRpcClient> m_xmrClient;
+
+   CryptoNote::SwapOfferRelay* m_swapRelay = nullptr;
 
    std::thread           m_tickThread;
    std::atomic<bool>     m_running{false};

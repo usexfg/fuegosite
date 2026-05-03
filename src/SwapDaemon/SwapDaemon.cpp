@@ -19,6 +19,7 @@
 #include "Common/StringTools.h"
 #include "CryptoNoteCore/CryptoNoteTools.h"
 #include "CryptoNoteConfig.h"
+#include "CryptoNoteCore/SwapOfferRelay.h"
 #include "crypto/hash.h"
 #include "crypto/crypto.h"
 
@@ -122,6 +123,14 @@ void SwapDaemon::tickLoop() {
 
     // checkTimeouts handles refunds for all expired swaps
     checkTimeouts();
+
+    // Process pending soft order requests from SwapOfferRelay
+    if (m_swapRelay) {
+      auto pendingRequests = m_swapRelay->getPendingSwapRequests();
+      for (const auto& req : pendingRequests) {
+        handleSwapRequest(std::get<0>(req), std::get<1>(req), std::get<2>(req), std::get<3>(req));
+      }
+    }
 
     // Advance every non-terminal swap one step
     auto swapIds = m_db.listSwaps();
@@ -240,68 +249,94 @@ bool SwapDaemon::initiate(SwapParams params) {
   return true;
 }
 
-bool SwapDaemon::accept(const std::string& swapId) {
+SwapDaemon::AcceptResult SwapDaemon::accept(const std::string& swapId) {
   SwapStateMachine sm;
   if (!m_db.loadSwap(swapId, sm)) {
     m_logger(Logging::ERROR) << "Swap not found: " << swapId;
-    return false;
+    return {false, ""};
   }
-
-  if (sm.currentState() != SwapState::INITIATED) {
-    m_logger(Logging::ERROR) << "Swap is not in INITIATED state (current: "
-                             << swapStateToString(sm.currentState()) << ")";
-    return false;
+  
+  if (sm.currentState() != SwapState::INITIATED && 
+      sm.currentState() != SwapState::AFK_OFFER_LOCKED) {
+    m_logger(Logging::ERROR) << "Swap is not in a state that can be accepted (current: "
+                               << swapStateToString(sm.currentState()) << ")";
+    return {false, ""};
   }
-
+  
   auto& params = sm.params();
+  std::string warning = "";
+  
+    // AFK Safety Check: Check remaining time of Maker's lock
+    if (sm.currentState() == SwapState::AFK_OFFER_LOCKED) {
+      uint32_t currentHeight = 0;
+      if (!m_rpc.getHeight(currentHeight)) {
+        m_logger(Logging::ERROR) << "Cannot query fuegod height";
+        return {false, ""};
+      }
+      
+      // Fuego block time = 480s (8 min). 1 hour = 7.5 blocks. Use 8 blocks as safe minimum.
+      int32_t remainingBlocks = static_cast<int32_t>(params.xfgTimeoutHeight) - currentHeight;
+      
+      if (remainingBlocks < 8) {
+        m_logger(Logging::ERROR) << "AFK offer expired or too close to expiry (" 
+                                 << remainingBlocks << " blocks left). Acceptance rejected.";
+        return {false, ""};
+      }
+      
+      if (remainingBlocks < 64) { // 8 hours = 64 blocks (8 * 8)
+        double remainingHrs = remainingBlocks / 7.5;
+        warning = "This offer is under 8 hours from expiry. Please be aware you only have " 
+                  + std::to_string(remainingHrs) + " hours to claim your funds before maker has access to funds again to initiate a refund.";
+      }
+    }
 
-  // Timelock ordering: Alice's XFG refund window must strictly exceed Bob's
-  // counterparty timeout so Alice can always reclaim XFG if Bob goes silent.
+
+  // Timelock ordering check
   if (params.ctrTimeoutBlock != 0 &&
       params.xfgTimeoutHeight <= params.ctrTimeoutBlock) {
     m_logger(Logging::ERROR)
       << "Timelock ordering violation: xfgTimeoutHeight ("
       << params.xfgTimeoutHeight << ") must exceed ctrTimeoutBlock ("
       << params.ctrTimeoutBlock << ")";
-    return false;
+    return {false, ""};
   }
-
+  
   // ── Adaptor sig step 2: key aggregation ──
-  // Peer's pubkey must be set before calling accept
   if (!adaptor_key_aggregate(params)) {
     m_logger(Logging::ERROR) << "Musig2 key aggregation failed";
-    return false;
+    return {false, ""};
   }
-
+  
   m_logger(Logging::INFO) << "Musig2 escrow key: "
     << Common::podToHex(params.escrowPubKey);
-
-  // If Bob, generate adaptor point + DLEQ proof
+  
   if (params.role == SwapRole::BOB) {
-    // Use escrow pubkey as DLEQ base point
     if (!adaptor_generate_adaptor(params, params.escrowPubKey)) {
       m_logger(Logging::ERROR) << "Adaptor point generation failed";
-      return false;
+      return {false, ""};
     }
     m_logger(Logging::INFO) << "Adaptor point T: "
       << Common::podToHex(params.adaptorPoint);
   }
+  
+  SwapState newState = (sm.currentState() == SwapState::AFK_OFFER_LOCKED) 
+                       ? SwapState::AFK_OFFER_ACCEPTED 
+                       : SwapState::ADAPTOR_KEYS_EXCHANGED;
 
-  if (!sm.transition(SwapState::ADAPTOR_KEYS_EXCHANGED)) {
-    m_logger(Logging::ERROR) << "State transition failed";
-    return false;
+  if (!sm.transition(newState)) {
+    m_logger(Logging::ERROR) << "State transition failed to " << swapStateToString(newState);
+    return {false, ""};
   }
-
+  
   if (!m_db.saveSwap(sm)) {
     m_logger(Logging::ERROR) << "Failed to save swap state";
-    return false;
+    return {false, ""};
   }
-
-  m_logger(Logging::INFO) << "Swap " << swapId << " -> ADAPTOR_KEYS_EXCHANGED";
-  m_logger(Logging::INFO) << "  Next: fund XFG escrow to joint key "
-    << Common::podToHex(params.escrowPubKey);
-  return true;
+  
+  m_logger(Logging::INFO) << "Swap " << swapId << " -> " << swapStateToString(sm.currentState());
+  return {true, warning};
 }
+
 
 void SwapDaemon::checkStuckSwaps() {
   time_t now = std::time(nullptr);
@@ -1211,27 +1246,41 @@ PriceOracle& SwapDaemon::priceOracle() {
    return m_poolOrganizer.generateCheckpoint(poolId);
  }
 
- bool SwapDaemon::getCurrentCheckpoint(const PoolId& poolId, PoolCheckpoint& checkpoint) const {
-   return m_poolOrganizer.getCurrentCheckpoint(poolId, checkpoint);
- }
+  bool SwapDaemon::getCurrentCheckpoint(const PoolId& poolId, PoolCheckpoint& checkpoint) const {
+    return m_poolOrganizer.getCurrentCheckpoint(poolId, checkpoint);
+  }
 
- bool SwapDaemon::verifyCheckpoint(const PoolId& poolId, const PoolCheckpoint& checkpoint) const {
-   return m_poolOrganizer.verifyCheckpoint(poolId, checkpoint);
- }
+  std::vector<SwapStateMachine> SwapDaemon::getActiveAfkOffers() {
+    std::vector<SwapStateMachine> activeOffers;
+    uint32_t currentHeight = 0;
+    if (!m_rpc.getHeight(currentHeight)) {
+      m_logger(Logging::ERROR) << "Cannot query fuegod height for orderbook filtering";
+      return activeOffers;
+    }
 
- bool SwapDaemon::getLPShares(const Crypto::PublicKey& owner, const PoolId& poolId, LPShare& shares) const {
-   return m_poolOrganizer.getLPShares(owner, poolId, shares);
- }
+    auto swapIds = m_db.listSwaps();
+    for (const auto& id : swapIds) {
+      SwapStateMachine sm;
+      if (!m_db.loadSwap(id, sm)) continue;
+      
+    if (sm.currentState() == SwapState::AFK_OFFER_LOCKED) {
+      // Remove offers with < 1 hour remaining (~8 blocks)
+      if (static_cast<int32_t>(sm.params().xfgTimeoutHeight) - currentHeight >= 8) {
+        activeOffers.push_back(sm);
+      }
+    }
 
- std::vector<Crypto::Hash> SwapDaemon::getLPShareProof(const Crypto::PublicKey& owner, const PoolId& poolId, size_t& leafIndex) const {
-   return m_poolOrganizer.getLPShareProof(owner, poolId, leafIndex);
- }
+    }
+    return activeOffers;
+  }
+bool SwapDaemon::handleSwapRequest(const std::string& offerId, uint64_t amount,
+                         const std::string& takerPubKey, const std::string& proofOfFunds) {
+  // Validate proofOfFunds if applicable (using K_COMMAND_RPC_CHECK_RESERVE_PROOF logic via wallet/RPC)
 
- PoolOrganizer::PoolStats SwapDaemon::getPoolStats(const PoolId& poolId) const {
-   return m_poolOrganizer.getPoolStats(poolId);
- }
+  // Create the AFK Lock using wallet RPC (auto-execute)
+  // And start the swap state machine
+  m_logger(Logging::INFO) << "Received swap request for offer " << offerId << " amount " << amount;
+  return true;
+}
 
- uint64_t SwapDaemon::getSpotPrice(const PoolId& poolId) const {
-   return m_poolOrganizer.getSpotPrice(poolId);
- }
 } // namespace XfgSwap
