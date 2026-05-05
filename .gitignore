@@ -11,15 +11,14 @@ Cargo.lock
 *.swp
 *.swo
 *~
-.claude
-.opencode
-.zed
+.claude/
+.opencode/
+.zed/
 /usexfg-website
 /digm-platform
 /CMakeFiles
 /competitor_data
 /monerotestnet
-/nanobanana-output
 /testnet-data
 /testnet-data2
 
