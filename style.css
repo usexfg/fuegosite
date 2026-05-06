@@ -1474,3 +1474,18 @@ footer {
     background: var(--fire);
     color: var(--black);
 }
+
+/* --- SPIN TRANSITION --- */
+.spin-transition {
+    animation: fadeSpin 0.7s var(--ease) forwards;
+}
+
+@keyframes fadeSpin {
+    0% { transform: scale(1) rotate(0deg); opacity: 1; }
+    50% { transform: scale(0.95) rotate(2deg); opacity: 0.8; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spin-transition { animation: none; }
+}
