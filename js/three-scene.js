@@ -13,11 +13,15 @@
   }
 
   // Check for reduced motion preference
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let reduceMotion = false;
+  if (typeof window.matchMedia === 'function') {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reduceMotion = mediaQuery && mediaQuery.matches;
+  }
   
   // Mobile detection
   const isMobile = window.innerWidth < 768;
-  let particleCount = isMobile ? 100 : 300;
+  let particleCount = isMobile ? 80 : 250;
 
   // Scene setup
   const canvas = document.getElementById('three-canvas');
@@ -45,11 +49,11 @@
       positions[i * 3 + 1] = (Math.random() - 0.5) * 12 - 2;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 2;
       
-      velocities[i * 3] = (Math.random() - 0.5) * 0.01;
-      velocities[i * 3 + 1] = Math.random() * 0.03 + 0.01;
-      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.01;
+      velocities[i * 3] = (Math.random() - 0.5) * 0.015;
+      velocities[i * 3 + 1] = Math.random() * 0.04 + 0.02;
+      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.015;
       
-      sizes[i] = Math.random() * 0.1 + 0.01;
+      sizes[i] = Math.random() * 0.08 + 0.02;
     }
     
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -91,19 +95,25 @@
     
     time += 0.01;
     
-    if (particles && !reduceMotion) {
+    if (particles) {
       const positions = particles.geometry.attributes.position.array;
       const velocities = particles.userData.velocities;
+      const speedMultiplier = reduceMotion ? 0.1 : 1.0;
       
       for (let i = 0; i < particleCount; i++) {
-        // Wind effect: add subtle horizontal oscillation
-        positions[i * 3] += velocities[i * 3] + Math.sin(time + i) * 0.002;
-        positions[i * 3 + 1] += velocities[i * 3 + 1];
-        positions[i * 3 + 2] += velocities[i * 3 + 2] + Math.cos(time + i) * 0.002;
+        // Wind effect: chaotic horizontal and depth oscillation for embers
+        const windX = Math.sin(time * 2 + i) * 0.003 + Math.sin(time * 0.5 + i * 2) * 0.002;
+        const windZ = Math.cos(time * 2 + i) * 0.003 + Math.cos(time * 0.5 + i * 2) * 0.002;
+
+        positions[i * 3] += (velocities[i * 3] + windX) * speedMultiplier;
+        positions[i * 3 + 1] += velocities[i * 3 + 1] * speedMultiplier;
+        positions[i * 3 + 2] += (velocities[i * 3 + 2] + windZ) * speedMultiplier;
         
-        // "Pop" effect: occasional sudden upward boost
-        if (Math.random() < 0.005) {
-          positions[i * 3 + 1] += Math.random() * 0.1;
+        // "Pop" effect: occasional sudden upward and sideways boost (like popping ember)
+        if (!reduceMotion && Math.random() < 0.002) {
+          positions[i * 3] += (Math.random() - 0.5) * 0.2;
+          positions[i * 3 + 1] += Math.random() * 0.15;
+          positions[i * 3 + 2] += (Math.random() - 0.5) * 0.2;
         }
         
         // Reset if out of view
@@ -117,7 +127,9 @@
       particles.geometry.attributes.position.needsUpdate = true;
       
       // Subtle rotation
-      particles.rotation.y = Math.sin(time * 0.1) * 0.05;
+      if (!reduceMotion) {
+        particles.rotation.y = Math.sin(time * 0.2) * 0.08;
+      }
     }
     
     // Smooth parallax
@@ -134,7 +146,7 @@
 
   // Handle resize
   function onResize() {
-    const newParticleCount = window.innerWidth < 768 ? 100 : 300;
+    const newParticleCount = window.innerWidth < 768 ? 80 : 250;
     
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
