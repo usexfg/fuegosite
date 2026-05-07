@@ -1487,12 +1487,9 @@ footer {
     10% { transform: scale(0.95) rotate(0deg); opacity: 0.9; }
     20% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
     30% { transform: scale(0.95) rotate(0deg); opacity: 0.7; }
-    40% { transform: scale(0.95) rotate(0deg); opacity: 0.6; }
-    50% { transform: scale(0.95) rotate(0deg); opacity: 0.5; }
-    60% { transform: scale(0.95) rotate(0deg); opacity: 0.4; }
-    70% { transform: scale(0.95) rotate(0deg); opacity: 0.3; }
-    80% { transform: scale(0.95) rotate(0deg); opacity: 0.2; }
-    90% { transform: scale(0.95) rotate(0deg); opacity: 0.1; }
+    45% { transform: scale(0.95) rotate(0deg); opacity: 0.6; }
+    63% { transform: scale(0.95) rotate(0deg); opacity: 0.5; }
+    80% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
     100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
