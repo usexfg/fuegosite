@@ -1200,7 +1200,7 @@ footer {
 .footer-links {
     display: flex;
     gap: 24px;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .footer-links a {
@@ -1212,8 +1212,10 @@ footer {
 }
 
 .footer-right {
-    font-size: 13px;
+   font-size: 15px;
     color: var(--gray-700);
+     font-weight: 500;
+/*text-shadow: 0px 2px 1px rgb(34, 0, 255); */
 }
 
 /* --- RESPONSIVE --- */
@@ -1248,7 +1250,7 @@ footer {
     }
 
     .hero h1 {
-        font-size: 2.25rem;
+        font-size: 2.22rem;
     }
 
     .hero-stats {
@@ -1333,7 +1335,7 @@ footer {
     .hero-stats {
         opacity: 0;
         transform: translateY(16px);
-        animation: fadeUp 0.7s var(--ease) forwards;
+        animation: fadeUp 0.9s var(--ease) forwards;
     }
 
     .hero-badge {
@@ -1477,12 +1479,20 @@ footer {
 
 /* --- SPIN TRANSITION --- */
 .spin-transition {
-    animation: fadeSpin 0.7s var(--ease) forwards;
+    animation: fadeSpin 0.8s var(--ease) forwards;
 }
 
 @keyframes fadeSpin {
     0% { transform: scale(1) rotate(0deg); opacity: 1; }
-    50% { transform: scale(0.95) rotate(2deg); opacity: 0.8; }
+    10% { transform: scale(0.95) rotate(0deg); opacity: 0.9; }
+    20% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
+    30% { transform: scale(0.95) rotate(0deg); opacity: 0.7; }
+    40% { transform: scale(0.95) rotate(0deg); opacity: 0.6; }
+    50% { transform: scale(0.95) rotate(0deg); opacity: 0.5; }
+    60% { transform: scale(0.95) rotate(0deg); opacity: 0.4; }
+    70% { transform: scale(0.95) rotate(0deg); opacity: 0.3; }
+    80% { transform: scale(0.95) rotate(0deg); opacity: 0.2; }
+    90% { transform: scale(0.95) rotate(0deg); opacity: 0.1; }
     100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
