@@ -12,7 +12,7 @@
   }
 
   const isMobile = window.innerWidth < 768;
-  const particleCount = isMobile ? 60 : 180;
+  const particleCount = isMobile ? 60 : 160;
 
   const canvas = document.getElementById('three-canvas');
   if (!canvas) return;
@@ -32,33 +32,33 @@
 
   let particles = null;
 
-  function initHeroParticles() {
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = new Float32Array(particleCount * 3);
+  function initParticles() {
+    var geometry = new THREE.BufferGeometry();
+    var positions = new Float32Array(particleCount * 3);
+    var velocities = new Float32Array(particleCount * 3);
 
-    for (let i = 0; i < particleCount; i++) {
+    for (var i = 0; i < particleCount; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 12;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 12 - 2;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 14 - 2;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 2;
-      velocities[i * 3] = (Math.random() - 0.5) * 0.015;
-      velocities[i * 3 + 1] = Math.random() * 0.04 + 0.02;
-      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.015;
+      velocities[i * 3] = (Math.random() - 0.5) * 0.03;
+      velocities[i * 3 + 1] = Math.random() * 0.07 + 0.04;
+      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    const material = new THREE.PointsMaterial({
+    var material = new THREE.PointsMaterial({
       color: 0xff4500,
-      size: 0.06,
+      size: 0.05,
       transparent: true,
-      opacity: reduceMotion ? 0.15 : 0.3,
+      opacity: reduceMotion ? 0.1 : 0.25,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
 
     particles = new THREE.Points(geometry, material);
-    particles.userData = { velocities };
+    particles.userData = { velocities: velocities };
     scene.add(particles);
   }
 
@@ -75,8 +75,6 @@
   }
 
   let time = 0;
-  let frameCount = 0;
-  const skipFrames = reduceMotion ? 3 : 1;
   let isVisible = true;
 
   document.addEventListener('visibilitychange', function () {
@@ -88,32 +86,26 @@
 
     if (!isVisible) return;
 
-    frameCount++;
-    if (frameCount % skipFrames !== 0 && !reduceMotion) {
-      renderer.render(scene, camera);
-      return;
-    }
-
-    time += 0.01;
+    time += 0.016;
 
     if (particles) {
       var positions = particles.geometry.attributes.position.array;
       var velocities = particles.userData.velocities;
-      var speedMul = reduceMotion ? 0.05 : 0.6;
+      var spd = reduceMotion ? 0.05 : 0.8;
 
       for (var i = 0; i < particleCount; i++) {
         var i3 = i * 3;
-        var windX = Math.sin(time * 2 + i) * 0.003;
-        var windZ = Math.cos(time * 2 + i) * 0.003;
+        var windX = Math.sin(time * 4 + i * 0.7) * 0.005 + Math.sin(time * 1.3 + i * 2.1) * 0.003;
+        var windZ = Math.cos(time * 4 + i * 0.7) * 0.005 + Math.cos(time * 1.3 + i * 2.1) * 0.003;
 
-        positions[i3] += (velocities[i3] + windX) * speedMul;
-        positions[i3 + 1] += velocities[i3 + 1] * speedMul;
-        positions[i3 + 2] += (velocities[i3 + 2] + windZ) * speedMul;
+        positions[i3] += (velocities[i3] + windX) * spd;
+        positions[i3 + 1] += velocities[i3 + 1] * spd;
+        positions[i3 + 2] += (velocities[i3 + 2] + windZ) * spd;
 
-        if (!reduceMotion && Math.random() < 0.002) {
-          positions[i3] += (Math.random() - 0.5) * 0.2;
-          positions[i3 + 1] += Math.random() * 0.15;
-          positions[i3 + 2] += (Math.random() - 0.5) * 0.2;
+        if (!reduceMotion && Math.random() < 0.003) {
+          positions[i3] += (Math.random() - 0.5) * 0.25;
+          positions[i3 + 1] += Math.random() * 0.2;
+          positions[i3 + 2] += (Math.random() - 0.5) * 0.25;
         }
 
         if (positions[i3 + 1] > 6) {
@@ -125,8 +117,8 @@
 
       particles.geometry.attributes.position.needsUpdate = true;
 
-      if (!reduceMotion && isMobile === false) {
-        particles.rotation.y = Math.sin(time * 0.2) * 0.08;
+      if (!reduceMotion) {
+        particles.rotation.y = Math.sin(time * 0.3) * 0.06;
       }
     }
 
@@ -142,8 +134,6 @@
   }
 
   function onResize() {
-    var newCount = window.innerWidth < 768 ? 60 : 180;
-
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -152,7 +142,7 @@
 
   window.addEventListener('resize', onResize);
 
-  initHeroParticles();
+  initParticles();
   animate();
 
   console.log('[ThreeJS] Scene initialized -', particleCount, 'particles');
